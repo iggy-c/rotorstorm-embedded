@@ -2,6 +2,7 @@ void setup() {
   // put your setup code here, to run once:
   //test
 place to stoe libraries
+muy computor trash
 }
 
 void loop() {
