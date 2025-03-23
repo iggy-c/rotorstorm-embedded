@@ -40,6 +40,17 @@ Servo release_servo;
 const int UARTRX = 1;
 const int UARTTX = 0;
 
+float currentaltitude = bmp.readAltitude(SEALEVELPRESSURE_HPA);
+
+float previousaltitude;
+float ppreviousaltitude;
+float pppreviousaltitude;
+float ppppreviousaltitude;
+float pppppreviousaltitude;
+float maximumaltitude;
+float bmaltitude;
+float maxaltitude;
+
 int packetCount = 0;
 String echoStr = "None";
 int servoPos = 0;
@@ -85,6 +96,14 @@ void setup() {
 
   Serial.begin(9600);
   // timer.start();
+currentaltitude = 0;
+float previousaltitude = 0;
+float ppreviousaltitude = 0;
+float pppreviousaltitude = 0;
+float ppppreviousaltitude = 0;
+float pppppreviousaltitude = 0;
+float maximumaltitude = 0;
+float bmaltitude = 0;
 
   // initialize XBee
   Serial1.setRX(UARTRX);
@@ -344,6 +363,13 @@ void loop() {
     }
   }
   Serial1.flush();
+  previousaltitude = currentaltitude;
+  ppreviousaltitude = previousaltitude;
+  pppreviousaltitude = ppreviousaltitude;
+  ppppreviousaltitude = pppreviousaltitude;
+  pppppreviousaltitude = ppppreviousaltitude;
 
+  maximumaltitude = pppppreviousaltitude;
+  bmaltitude = maximumaltitude;
   delay(1000);
 }
