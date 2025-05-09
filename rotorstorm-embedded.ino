@@ -133,9 +133,8 @@ void setup() {
 
   if (!bno08x.begin_I2C()) {
     Serial.println("Failed to find BNO08x chip");
+    while (1);
   }
-
-  Serial.println("BMP3XX Sensor Initialized!");
 
   // Set up oversampling and filter initialization
   bmp.setTemperatureOversampling(BMP3_OVERSAMPLING_8X);
@@ -187,14 +186,12 @@ void loop() {
   if (!bmp.performReading()) {
     Serial.println("Failed to perform reading on BMP :(");
   }
-  Serial.print("jijij");
   // beginning of GNSS stuff
   if (myGNSS.getPVT() == true) {
     latitude = myGNSS.getLatitude();
     Serial.print(myGNSS.getLatitude());
     longitude = myGNSS.getLongitude();
     Serial.print(myGNSS.getLongitude());
-    Serial.println("asdfas");
     // gps_altitude = myGNSS.getAltitudeMSL();  // Altitude above Mean Sea Level
     // Serial.println(gps_altitude);
 
@@ -247,7 +244,7 @@ void loop() {
     }
   }
   Serial.println(sp);
-  Serial1.flush();
+  Serial1.flush(); //beware of this dont know what it does exaclty
 
 
   currentaltitude = bmp.readAltitude(intPress);
@@ -273,9 +270,9 @@ void loop() {
      + bmp.readTemperature() + ","                  //TEMPERATURE
      + bmp.readPressure() + ","                     //PRESSURE
      + String(voltage) + ","                        //VOLTAGE
-     + String(sensorValue.un.rawGyroscope.x) + ","  //GYRO X
-     + String(sensorValue.un.rawGyroscope.y) + ","  //GYRO Y
-     + String(sensorValue.un.rawGyroscope.z) + ","  //GYRO Z
+     + String(sensorValue.un.gyroscope.x) + ","  //GYRO X
+     + String(sensorValue.un.gyroscope.y) + ","  //GYRO Y
+     + String(sensorValue.un.gyroscope.z) + ","  //GYRO Z
      // + String(gyro)
      + ",,,,,,"
      // + String(String(&angVelocityData)) + ","
