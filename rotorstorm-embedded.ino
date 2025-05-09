@@ -13,14 +13,16 @@
 
 #define I2C_SDA 12
 #define I2C_SCL 13
+#define BNO08X_SDA 12
+#define BNO08X_SCL 13
 #define servo_wire 11
-#define analogPin 26
 
 const int UARTTX = 0;
 const int UARTRX = 1;
 const int UARTTXUPCAM0 = 8;  //upcam tx
 const int UARTRXUPCAM0 = 9;  // upcam rx
 int packetCount = 1;
+const int analogPin = 26;
 
 #define SEALEVELPRESSURE_HPA (1013.25)
 #define START_DELIMITER 0x7E  // XBee API start byte
@@ -110,6 +112,7 @@ float bmaltitude = 0;
 
 void setup() {
 
+  analogReadResolution(12);
   Serial.begin(9600);
   Serial1.setRX(UARTRX);
   Serial1.setTX(UARTTX);
@@ -122,6 +125,8 @@ void setup() {
 
   Wire.setSDA(I2C_SDA);
   Wire.setSCL(I2C_SCL);
+  Wire.setSDA(BNO08X_SDA);
+  Wire.setSCL(BNO08X_SCL);
   Wire.begin();
   
   delay(500);
@@ -131,10 +136,11 @@ void setup() {
     while (1);  // Halt execution
   }
 
-  if (!bno08x.begin_I2C()) {
+  if (!bno08x.begin_I2C(BNO08x_ADDRESS, &Wire)) {
     Serial.println("Failed to find BNO08x chip");
     while (1);
   }
+  delay(10);
 
   // Set up oversampling and filter initialization
   bmp.setTemperatureOversampling(BMP3_OVERSAMPLING_8X);
@@ -178,6 +184,58 @@ void setup() {
   }
 
   release_servo.attach(servo_wire, 400, 2600);
+  setReports();
+  delay(100);
+}
+
+// Here is where you define the sensor outputs you want to receive
+void setReports(void) {
+  Serial.println("Setting desired reports");
+  if (!bno08x.enableReport(SH2_ACCELEROMETER)) {
+    Serial.println("Could not enable accelerometer");
+  }
+  if (!bno08x.enableReport(SH2_GYROSCOPE_CALIBRATED)) {
+    Serial.println("Could not enable gyroscope");
+  }
+  if (!bno08x.enableReport(SH2_MAGNETIC_FIELD_CALIBRATED)) {
+    Serial.println("Could not enable magnetic field calibrated");
+  }
+  if (!bno08x.enableReport(SH2_LINEAR_ACCELERATION)) {
+    Serial.println("Could not enable linear acceleration");
+  }
+  if (!bno08x.enableReport(SH2_GRAVITY)) {
+    Serial.println("Could not enable gravity vector");
+  }
+  if (!bno08x.enableReport(SH2_ROTATION_VECTOR)) {
+    Serial.println("Could not enable rotation vector");
+  }
+  if (!bno08x.enableReport(SH2_GEOMAGNETIC_ROTATION_VECTOR)) {
+    Serial.println("Could not enable geomagnetic rotation vector");
+  }
+  if (!bno08x.enableReport(SH2_GAME_ROTATION_VECTOR)) {
+    Serial.println("Could not enable game rotation vector");
+  }
+  if (!bno08x.enableReport(SH2_STEP_COUNTER)) {
+    Serial.println("Could not enable step counter");
+  }
+  if (!bno08x.enableReport(SH2_STABILITY_CLASSIFIER)) {
+    Serial.println("Could not enable stability classifier");
+  }
+  if (!bno08x.enableReport(SH2_RAW_ACCELEROMETER)) {
+    Serial.println("Could not enable raw accelerometer");
+  }
+  if (!bno08x.enableReport(SH2_RAW_GYROSCOPE)) {
+    Serial.println("Could not enable raw gyroscope");
+  }
+  if (!bno08x.enableReport(SH2_RAW_MAGNETOMETER)) {
+    Serial.println("Could not enable raw magnetometer");
+  }
+  if (!bno08x.enableReport(SH2_SHAKE_DETECTOR)) {
+    Serial.println("Could not enable shake detector");
+  }
+  if (!bno08x.enableReport(SH2_PERSONAL_ACTIVITY_CLASSIFIER)) {
+    Serial.println("Could not enable personal activity classifier");
+  }
 }
 
 void loop() {
@@ -200,10 +258,14 @@ void loop() {
 
     // Serial.println("asdfas");
   }
+  if (bno08x.wasReset()) {
+    Serial.print("sensor was reset ");
+    setReports();
+  }
 
   (!bno08x.getSensorEvent(&sensorValue));
 
-  float voltage = analogRead(analogPin) * (3.3 / 4095.0) / (680.0 / 1500.0);
+  Serial.println(float(analogRead(analogPin)) * (3.3 / 4095.0) / (680.0 / 1500.0));
 
   //Handle received messages from XBee
   while (Serial1.available()) {
@@ -269,7 +331,7 @@ void loop() {
      + String(bmp.readAltitude(intPress)) + ","     //ALTITUDE
      + bmp.readTemperature() + ","                  //TEMPERATURE
      + bmp.readPressure() + ","                     //PRESSURE
-     + String(voltage) + ","                        //VOLTAGE
+     + String(float(analogRead(analogPin)) * (3.3 / 4095.0) / (680.0 / 1500.0)) + ","                        //VOLTAGE
      + String(sensorValue.un.gyroscope.x) + ","  //GYRO X
      + String(sensorValue.un.gyroscope.y) + ","  //GYRO Y
      + String(sensorValue.un.gyroscope.z) + ","  //GYRO Z

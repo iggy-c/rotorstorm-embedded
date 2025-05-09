@@ -92,3 +92,39 @@ void setReports(Adafruit_BNO08x bno08x) {
     Serial.println("Could not enable personal activity classifier");
   }
 }
+void printActivity(uint8_t activity_id) {
+  switch (activity_id) {
+  case PAC_UNKNOWN:
+    Serial.print("Unknown");
+    break;
+  case PAC_IN_VEHICLE:
+    Serial.print("In Vehicle");
+    break;
+  case PAC_ON_BICYCLE:
+    Serial.print("On Bicycle");
+    break;
+  case PAC_ON_FOOT:
+    Serial.print("On Foot");
+    break;
+  case PAC_STILL:
+    Serial.print("Still");
+    break;
+  case PAC_TILTING:
+    Serial.print("Tilting");
+    break;
+  case PAC_WALKING:
+    Serial.print("Walking");
+    break;
+  case PAC_RUNNING:
+    Serial.print("Running");
+    break;
+  case PAC_ON_STAIRS:
+    Serial.print("On Stairs");
+    break;
+  default:
+    Serial.print("NOT LISTED");
+  }
+  Serial.print(" (");
+  Serial.print(activity_id);
+  Serial.print(")");
+}
