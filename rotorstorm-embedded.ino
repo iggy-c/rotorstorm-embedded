@@ -250,13 +250,12 @@ void loop() {
     Serial.print(myGNSS.getLatitude());
     longitude = myGNSS.getLongitude();
     Serial.print(myGNSS.getLongitude());
-    // gps_altitude = myGNSS.getAltitudeMSL();  // Altitude above Mean Sea Level
-    // Serial.println(gps_altitude);
+    gps_altitude = myGNSS.getAltitudeMSL();  // Altitude above Mean Sea Level
+    Serial.println(gps_altitude);
 
-    // SIV = myGNSS.getSIV();
-    // Serial.print(SIV);
+    SIV = myGNSS.getSIV();
+    Serial.print(SIV);
 
-    // Serial.println("asdfas");
   }
   if (bno08x.wasReset()) {
     Serial.print("sensor was reset ");
