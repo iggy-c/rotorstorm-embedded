@@ -264,7 +264,7 @@ void loop() {
 
   (!bno08x.getSensorEvent(&sensorValue));
 Serial.println(float(analogRead(analogPin)));
-  Serial.println(float(analogRead(analogPin)) * (3.3 / 4095.0) / (680.0 / 1500.0));
+  Serial.println(float(analogRead(analogPin)) * (3.3 / 4095.0) / (680.0 / 2180));
 
   //Handle received messages from XBee
   while (Serial1.available()) {
