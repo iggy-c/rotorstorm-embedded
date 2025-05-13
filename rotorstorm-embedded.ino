@@ -2,11 +2,11 @@
 #include <SparkFun_u-blox_GNSS_Arduino_Library.h>  // enables GNSS
 #include <Adafruit_BNO08x.h>                       // enables BNO085
 #include "Adafruit_BMP3XX.h"                       //enables BMP
-#include <Adafruit_Sensor.h>
-#include <Servo.h>             // enables servo
+#include <Adafruit_Sensor.h>                       //enables adafruit sensors
+#include <Servo.h>                                 // enables servo
 
-#define BMP390_ADDRESS 0x77    // Try 0x76 if this fails
-#define gnssAddress 0x42       // The default I2C address for u-blox modules is 0x42. Change this if required
+#define BMP390_ADDRESS 0x77  // Try 0x76 if this fails
+#define gnssAddress 0x42     // The default I2C address for u-blox modules is 0x42. Change this if required
 #define BNO08x_ADDRESS 0x4A
 #define TACHOMETER_ADRESS 0x12
 
@@ -31,7 +31,7 @@ Adafruit_BNO08x bno08x;
 
 sh2_SensorValue_t sensorValue;
 bool telemetry = false;
-String packet;  
+String packet;
 String echo;
 int packetCount = 1;
 
@@ -169,7 +169,8 @@ void setup() {
   Serial1.setRX(SER1_RX);
   Serial1.setTX(SER1_TX);
   Serial1.begin(9600);
-  while (DEBUG_MODE && !Serial);
+  while (DEBUG_MODE && !Serial)
+    ;
 
   Serial.println("Serial Started");
 
@@ -179,17 +180,19 @@ void setup() {
   Wire1.setSDA(TACH_SDA);
   Wire1.setSCL(TACH_SCL);
   Wire1.begin();
-  
+
   delay(100);
 
   if (!bmp.begin_I2C()) {  //this is important to initialize the i2c bus
     Serial.println("Could not find a valid BMP3XX sensor, check wiring!");
-    while (DEBUG_MODE);  // Halt execution
+    while (DEBUG_MODE)
+      ;  // Halt execution
   }
 
   if (!bno08x.begin_I2C(BNO08x_ADDRESS, &Wire)) {
     Serial.println("Failed to find BNO08x chip");
-    while (DEBUG_MODE);
+    while (DEBUG_MODE)
+      ;
   }
 
   // Set up oversampling and filter initialization
@@ -205,7 +208,7 @@ void setup() {
       Serial.println("Failed to perform reading :(");
     }
 
-    caibrated_pressure = bmp.pressure / 100.0;
+    calibrated_pressure = bmp.pressure / 100.0;
 
     if (DEBUG_MODE) {
       Serial.print("Temperature: ");
@@ -219,8 +222,7 @@ void setup() {
   //beginning of GNSS setup
   delay(100);
 
-  while (myGNSS.begin(Wire, gnssAddress) == false) 
-  {
+  while (myGNSS.begin(Wire, gnssAddress) == false) {
     Serial.println(F("u-blox GNSS not detected. Retrying..."));
     delay(1000);
   }
@@ -250,7 +252,6 @@ void loop() {
 
     SIV = myGNSS.getSIV();
     // Serial.print(SIV);
-
   }
   if (bno08x.wasReset()) {
     Serial.print("sensor was reset ");
@@ -287,28 +288,23 @@ void loop() {
         if (packet_payload.equals("cal")) {
           Serial.println("calibrating");
           calibrated_pressure = bmp.pressure / 100;
-        } 
-        else if (packet_payload.equals("rel")) {
+        } else if (packet_payload.equals("rel")) {
           Serial.println("releasing");
           release_servo.write(65);
           echo = "";
-        } 
-        else if (packet_payload.equals("clo")) {
+        } else if (packet_payload.equals("clo")) {
           Serial.println("priming");
           release_servo.write(82);
           echo = "";
-        } 
-        else if (packet_payload.equals("con")) {
+        } else if (packet_payload.equals("con")) {
           Serial.println("telemetry on");
           telemetry = true;
           echo = "CXON";
-        } 
-        else if (packet_payload.equals("cof")) {
+        } else if (packet_payload.equals("cof")) {
           Serial.println("telemetry off");
           telemetry = false;
           echo = "CXOFF";
-        }
-        else{
+        } else {
           Serial.print("unrecognized command: ");
           Serial.println(packet_payload);
         }
@@ -318,7 +314,7 @@ void loop() {
     }
   }
   // Serial.println(packet_payload);
-  Serial1.flush(); 
+  Serial1.flush();
 
 
   currentaltitude = bmp.readAltitude(intPress);
@@ -335,9 +331,9 @@ void loop() {
   // Serial.println(flightState);
 
   Wire1.requestFrom(TACHOMETER_ADRESS, 2);
-  if (Wire1.available() == 2) {      // If 2 bytes are available
-    byte lowByte = Wire1.read();    // Read low byte
-    byte highByte = Wire1.read();   // Read high byte
+  if (Wire1.available() == 2) {                // If 2 bytes are available
+    byte lowByte = Wire1.read();               // Read low byte
+    byte highByte = Wire1.read();              // Read high byte
     uint16_t rpm = (highByte << 8) | lowByte;  // Combine the two bytes into a 16-bit integer
     // Print RPM value
     Serial.println("******");
@@ -347,35 +343,35 @@ void loop() {
     Serial.println("incomplete data wire1");
   }
 
-  if (telemetry){
+  if (telemetry) {
 
     String packet =
-      ("3194,"                                        //TEAM_ID
-      + String(1) + ","                              //MISSION_TIME
-      + String(packetCount) + ","                    //PACKET_COUNT
-      + "mode,"                                      //MODE
-      + String(flightState) + ","                    //STATE
-      + String(bmp.readAltitude(calibrated_pressure)) + ","     //ALTITUDE
-      + bmp.readTemperature() + ","                  //TEMPERATURE
-      + bmp.readPressure() + ","                     //PRESSURE
-      + String(float(analogRead(VOLT_PIN))*(3.3/4095.0)/(680.0/1500.0)) + ","                        //VOLTAGE
-      + String(sensorValue.un.gyroscope.x) + ","  //GYRO X
-      + String(sensorValue.un.gyroscope.y) + ","  //GYRO Y
-      + String(sensorValue.un.gyroscope.z) + ","  //GYRO Z
-      // + String(gyro)
-      + ",,,,,,"
-      // + String(String(&angVelocityData)) + ","
-      // + String(String(&angVelocityData)) + ","
-      // + String(sensorValue.un.linearAcceleration.x) + ","
-      // + String(sensorValue.un.linearAcceleration.y) + ","
-      // + String(sensorValue.un.linearAcceleration.z) + ","
-      + ",,,rotate_rate,"
-      + "gpstime,"
-      + String(gps_altitude) + ","
-      + String(latitude) + ","
-      + String(longitude) + ","
-      + String(SIV) + ","
-      + "echo" + "z");
+      ("3194,"                                                                          //TEAM_ID
+       + String(1) + ","                                                                //MISSION_TIME
+       + String(packetCount) + ","                                                      //PACKET_COUNT
+       + "mode,"                                                                        //MODE
+       + String(flightState) + ","                                                      //STATE
+       + String(bmp.readAltitude(calibrated_pressure)) + ","                            //ALTITUDE
+       + bmp.readTemperature() + ","                                                    //TEMPERATURE
+       + bmp.readPressure() + ","                                                       //PRESSURE
+       + String(float(analogRead(VOLT_PIN)) * (3.3 / 4095.0) / (680.0 / 1500.0)) + ","  //VOLTAGE
+       + String(sensorValue.un.gyroscope.x) + ","                                       //GYRO X
+       + String(sensorValue.un.gyroscope.y) + ","                                       //GYRO Y
+       + String(sensorValue.un.gyroscope.z) + ","                                       //GYRO Z
+       // + String(gyro)
+       + ",,,,,,"
+       // + String(String(&angVelocityData)) + ","
+       // + String(String(&angVelocityData)) + ","
+       // + String(sensorValue.un.linearAcceleration.x) + ","
+       // + String(sensorValue.un.linearAcceleration.y) + ","
+       // + String(sensorValue.un.linearAcceleration.z) + ","
+       + ",,,rotate_rate,"
+       + "gpstime,"
+       + String(gps_altitude) + ","
+       + String(latitude) + ","
+       + String(longitude) + ","
+       + String(SIV) + ","
+       + "echo" + "z");
 
     packetCount++;
 
