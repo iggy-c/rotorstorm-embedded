@@ -8,6 +8,7 @@
 #define BMP390_ADDRESS 0x77    // Try 0x76 if this fails
 #define gnssAddress 0x42       // The default I2C address for u-blox modules is 0x42. Change this if required
 #define BNO08x_ADDRESS 0x4A
+#define TACHOMETER_ADRESS 0x12
 
 #define I2C_SDA 12
 #define I2C_SCL 13
@@ -17,6 +18,8 @@
 #define SER1_RX 1
 #define CAM_TX 8
 #define CAM_RX 9
+#define TACH_SDA 14
+#define TACH_SCL 15
 
 #define SEALEVELPRESSURE_HPA (1013.25)
 #define START_DELIMITER 0x7E  // XBee API start byte
@@ -38,7 +41,29 @@ int32_t longitude;
 int32_t gps_altitude;
 byte SIV;
 
-bool DEBUG_MODE = false;
+bool DEBUG_MODE = true;
+
+uint16_t BNO055_SAMPLERATE_DELAY_MS = 100;
+long lastTime = 0;  //Simple local timer. Limits amount if I2C traffic to u-blox module.
+float currentaltitude = bmp.readAltitude(SEALEVELPRESSURE_HPA);
+float truemaximumaltitude = 0;
+float intPress;
+bool launch_pad = true;
+bool ascent = false;
+bool apogee = false;
+bool descent = false;
+bool probe_release = false;
+
+float maxaltitude = 0;
+//  float currentaltitude = 0;
+float previousaltitude = 0;
+float ppreviousaltitude = 0;
+float pppreviousaltitude = 0;
+float ppppreviousaltitude = 0;
+float pppppreviousaltitude = 0;
+float maximumaltitude = 0;
+float bmaltitude = 0;
+
 
 void send_xbee(String message) {
 
@@ -85,105 +110,8 @@ void send_xbee(String message) {
   Serial.print("XBee API frame sent: ");
   Serial.println(message);
 }
-//end initializing xbee packet setup stuff
-uint16_t BNO055_SAMPLERATE_DELAY_MS = 100;
-long lastTime = 0;  //Simple local timer. Limits amount if I2C traffic to u-blox module.
-float currentaltitude = bmp.readAltitude(SEALEVELPRESSURE_HPA);
-float truemaximumaltitude = 0;
-float intPress;
-bool launch_pad = true;
-bool ascent = false;
-bool apogee = false;
-bool descent = false;
-bool probe_release = false;
-
-float maxaltitude = 0;
-//  float currentaltitude = 0;
-float previousaltitude = 0;
-float ppreviousaltitude = 0;
-float pppreviousaltitude = 0;
-float ppppreviousaltitude = 0;
-float pppppreviousaltitude = 0;
-float maximumaltitude = 0;
-float bmaltitude = 0;
-
-void setup() {
-
-  analogReadResolution(12);
-  Serial.begin(9600);
-  Serial1.setRX(SER1_RX);
-  Serial1.setTX(SER1_TX);
-  Serial1.begin(9600);
-  while (DEBUG_MODE && !Serial);
-
-  Serial.println("Starting XBee API packet transmission...");
-
-  delay(500);  // Allow XBee to initialize
-
-  Wire.setSDA(I2C_SDA);
-  Wire.setSCL(I2C_SCL);
-  Wire.begin();
-  
-  delay(500);
-
-  if (!bmp.begin_I2C()) {  //this is important to initialize the i2c bus
-    Serial.println("Could not find a valid BMP3XX sensor, check wiring!");
-    while (DEBUG_MODE);  // Halt execution
-  }
-
-  if (!bno08x.begin_I2C(BNO08x_ADDRESS, &Wire)) {
-    Serial.println("Failed to find BNO08x chip");
-    while (DEBUG_MODE);
-  }
-
-  // Set up oversampling and filter initialization
-  bmp.setTemperatureOversampling(BMP3_OVERSAMPLING_8X);
-  bmp.setPressureOversampling(BMP3_OVERSAMPLING_4X);
-  bmp.setIIRFilterCoeff(BMP3_IIR_FILTER_COEFF_3);
-  bmp.setOutputDataRate(BMP3_ODR_50_HZ);
-
-  // question
-  delay(100);
-  int n = 2;
-  while (n < 10)  // check this number to see whats working and whats not
-  {
-    if (!bmp.performReading()) {
-      Serial.println("Failed to perform reading :(");
-      return;
-    }
-    Serial.print("Temperature = ");
-    Serial.print(bmp.temperature);
-    Serial.println(" *C");
-
-    Serial.print("Pressure = ");
-    intPress = (bmp.pressure / 100.0);
-    Serial.print(intPress);
-    Serial.println(" hPa");
-    n++;
-  }
-  if (!bmp.performReading()) {
-    Serial.println("Failed to perform reading :(");
-    return;
-  }
-  intPress = (bmp.pressure / 100);
 
 
-  //beginning of GNSS setup
-  delay(500);
-
-  while (myGNSS.begin(Wire, gnssAddress) == false) 
-  {
-    Serial.println(F("u-blox GNSS not detected. Retrying..."));
-    delay(1000);
-  }
-
-  release_servo.attach(SERVO_CTRL, 400, 2600);
-  release_servo.write(70);
-  setReports();
-  delay(100);
-}
-
-// Here is where you define the sensor outputs you want to receive
 void setReports(void) {
   Serial.println("Setting desired reports");
   if (!bno08x.enableReport(SH2_ACCELEROMETER)) {
@@ -232,6 +160,78 @@ void setReports(void) {
     Serial.println("Could not enable personal activity classifier");
   }
 }
+
+
+void setup() {
+
+  analogReadResolution(12);
+  Serial.begin(9600);
+  Serial1.setRX(SER1_RX);
+  Serial1.setTX(SER1_TX);
+  Serial1.begin(9600);
+  while (DEBUG_MODE && !Serial);
+
+  Serial.println("Serial Started");
+
+  Wire.setSDA(I2C_SDA);
+  Wire.setSCL(I2C_SCL);
+  Wire.begin();
+  Wire1.setSDA(TACH_SDA);
+  Wire1.setSCL(TACH_SCL);
+  Wire1.begin();
+  
+  delay(100);
+
+  if (!bmp.begin_I2C()) {  //this is important to initialize the i2c bus
+    Serial.println("Could not find a valid BMP3XX sensor, check wiring!");
+    while (DEBUG_MODE);  // Halt execution
+  }
+
+  if (!bno08x.begin_I2C(BNO08x_ADDRESS, &Wire)) {
+    Serial.println("Failed to find BNO08x chip");
+    while (DEBUG_MODE);
+  }
+
+  // Set up oversampling and filter initialization
+  bmp.setTemperatureOversampling(BMP3_OVERSAMPLING_8X);
+  bmp.setPressureOversampling(BMP3_OVERSAMPLING_4X);
+  bmp.setIIRFilterCoeff(BMP3_IIR_FILTER_COEFF_3);
+  bmp.setOutputDataRate(BMP3_ODR_50_HZ);
+
+  delay(100);
+
+  for (int i = 0; i < 10; i++) {
+    if (!bmp.performReading()) {
+      Serial.println("Failed to perform reading :(");
+    }
+
+    caibrated_pressure = bmp.pressure / 100.0;
+
+    if (DEBUG_MODE) {
+      Serial.print("Temperature: ");
+      Serial.println(bmp.temperature);
+
+      Serial.print("Pressure: ");
+      Serial.println(calibrated_pressure);
+    }
+  }
+
+  //beginning of GNSS setup
+  delay(100);
+
+  while (myGNSS.begin(Wire, gnssAddress) == false) 
+  {
+    Serial.println(F("u-blox GNSS not detected. Retrying..."));
+    delay(1000);
+  }
+
+  release_servo.attach(SERVO_CTRL, 400, 2600);
+  release_servo.write(70);
+  setReports();
+  delay(100);
+}
+
+
 
 void loop() {
   String packet_payload = "";
@@ -334,6 +334,19 @@ void loop() {
   // Serial.println("flightstate: ");
   // Serial.println(flightState);
 
+  Wire1.requestFrom(TACHOMETER_ADRESS, 2);
+  if (Wire1.available() == 2) {      // If 2 bytes are available
+    byte lowByte = Wire1.read();    // Read low byte
+    byte highByte = Wire1.read();   // Read high byte
+    uint16_t rpm = (highByte << 8) | lowByte;  // Combine the two bytes into a 16-bit integer
+    // Print RPM value
+    Serial.println("******");
+    Serial.println(rpm);
+    Serial.println("******");
+  } else {
+    Serial.println("incomplete data wire1");
+  }
+
   if (telemetry){
 
     String packet =
@@ -342,10 +355,10 @@ void loop() {
       + String(packetCount) + ","                    //PACKET_COUNT
       + "mode,"                                      //MODE
       + String(flightState) + ","                    //STATE
-      + String(bmp.readAltitude(intPress)) + ","     //ALTITUDE
+      + String(bmp.readAltitude(calibrated_pressure)) + ","     //ALTITUDE
       + bmp.readTemperature() + ","                  //TEMPERATURE
       + bmp.readPressure() + ","                     //PRESSURE
-      + String(float(analogRead(VOLT_PIN)) * (3.3 / 4095.0) / (680.0 / 1500.0)) + ","                        //VOLTAGE
+      + String(float(analogRead(VOLT_PIN))*(3.3/4095.0)/(680.0/1500.0)) + ","                        //VOLTAGE
       + String(sensorValue.un.gyroscope.x) + ","  //GYRO X
       + String(sensorValue.un.gyroscope.y) + ","  //GYRO Y
       + String(sensorValue.un.gyroscope.z) + ","  //GYRO Z
