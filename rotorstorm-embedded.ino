@@ -183,7 +183,7 @@ void setup() {
     delay(1000);
   }
 
-  release_servo.attach(servo_wire, 400, 2600);
+  // release_servo.attach(servo_wire, 400, 2600);
   setReports();
   delay(100);
 }
