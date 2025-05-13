@@ -8,6 +8,9 @@
 #define BMP390_ADDRESS 0x77    // Try 0x76 if this fails
 #define gnssAddress 0x42       // The default I2C address for u-blox modules is 0x42. Change this if required
 #define BNO08x_ADDRESS 0x4A
+#define TACHOMETER_ADRESS 0x12
+#define TACHOMETER_SDA 14
+#define TACHOMETER_SCL 15
 
 #define I2C_SDA 12
 #define I2C_SCL 13
@@ -38,7 +41,7 @@ int32_t longitude;
 int32_t gps_altitude;
 byte SIV;
 
-bool DEBUG_MODE = false;
+bool DEBUG_MODE = true;
 
 void send_xbee(String message) {
 
@@ -108,7 +111,10 @@ float maximumaltitude = 0;
 float bmaltitude = 0;
 
 void setup() {
-
+  Wire1.begin();
+  Wire1.setSDA(14);
+  Wire1.setSCL(15);
+  delay(500);
   analogReadResolution(12);
   Serial.begin(9600);
   Serial1.setRX(SER1_RX);
@@ -234,6 +240,22 @@ void setReports(void) {
 }
 
 void loop() {
+
+  // Wire.requestFrom(TACHOMETER_SDA);
+  // Wire.requestFrom(TACHOMETER_SCL);
+  // Serial.print(Wire.requestFrom(TACHOMETER_SCL));
+  Wire1.requestFrom(TACHOMETER_ADRESS, 2);
+  if (Wire1.available() == 2) {      // If 2 bytes are available
+    byte lowByte = Wire1.read();    // Read low byte
+    byte highByte = Wire1.read();   // Read high byte
+    uint16_t rpm = (highByte << 8) | lowByte;  // Combine the two bytes into a 16-bit integer
+    // Print RPM value
+    Serial.println(rpm);
+  }
+  else {
+    Serial.println("Error: Incomplete data received!");
+  }
+
   String packet_payload = "";
   int unused = 0;
   if (!bmp.performReading()) {
