@@ -12,12 +12,7 @@
 // #define BNO08X_ADDR 0x4A // Alternate address if ADR jumper is closed
 #define TACHOMETER_ADRESS 0x12
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28); // go from wire to wire as needed
-// #define BNO08X_INT  -1
-// //define BNO08X_RST  A5
-// #define BNO08X_RST  -1
-// #define BNO08X_INT  -1
-// //define BNO08X_RST  A5
-// #define BNO08X_RST  -1
+
 uint16_t BNO055_SAMPLERATE_DELAY_MS = 100; // this could cause timing issues
 #define I2C_SDA 12
 #define I2C_SCL 13
@@ -51,7 +46,7 @@ int32_t gps_altitude;
 uint16_t rpm;
 byte SIV;
 
-bool DEBUG_MODE = true;
+bool DEBUG_MODE = false;
 
 
 long lastTime = 0;  //Simple local timer. Limits amount if I2C traffic to u-blox module.
@@ -122,64 +117,6 @@ void send_xbee(String message) {
 }
 
 
-// void setReports(void) {
-//   Serial.println("Setting desired reports");
-//   if (!bno08x.enableReport(SH2_ACCELEROMETER)) {
-//     Serial.println("Could not enable accelerometer");
-//   }
-//   if (!bno08x.enableReport(SH2_GYROSCOPE_CALIBRATED)) {
-//     Serial.println("Could not enable gyroscope");
-//   }
-//   if (!bno08x.enableReport(SH2_MAGNETIC_FIELD_CALIBRATED)) {
-//     Serial.println("Could not enable magnetic field calibrated");
-//   }
-//   if (!bno08x.enableReport(SH2_LINEAR_ACCELERATION)) {
-//     Serial.println("Could not enable linear acceleration");
-//   }
-//   if (!bno08x.enableReport(SH2_GRAVITY)) {
-//     Serial.println("Could not enable gravity vector");
-//   }
-//   if (!bno08x.enableReport(SH2_ROTATION_VECTOR)) {
-//     Serial.println("Could not enable rotation vector");
-//   }
-//   if (!bno08x.enableReport(SH2_GEOMAGNETIC_ROTATION_VECTOR)) {
-//     Serial.println("Could not enable geomagnetic rotation vector");
-//   }
-//   if (!bno08x.enableReport(SH2_GAME_ROTATION_VECTOR)) {
-//     Serial.println("Could not enable game rotation vector");
-//   }
-//   if (!bno08x.enableReport(SH2_STEP_COUNTER)) {
-//     Serial.println("Could not enable step counter");
-//   }
-//   if (!bno08x.enableReport(SH2_STABILITY_CLASSIFIER)) {
-//     Serial.println("Could not enable stability classifier");
-//   }
-//   if (!bno08x.enableReport(SH2_RAW_ACCELEROMETER)) {
-//     Serial.println("Could not enable raw accelerometer");
-//   }
-//   if (!bno08x.enableReport(SH2_RAW_GYROSCOPE)) {
-//     Serial.println("Could not enable raw gyroscope");
-//   }
-//   if (!bno08x.enableReport(SH2_RAW_MAGNETOMETER)) {
-//     Serial.println("Could not enable raw magnetometer");
-//   }
-//   if (!bno08x.enableReport(SH2_SHAKE_DETECTOR)) {
-//     Serial.println("Could not enable shake detector");
-//   }
-//   if (!bno08x.enableReport(SH2_PERSONAL_ACTIVITY_CLASSIFIER)) {
-//     Serial.println("Could not enable personal activity classifier");
-//   }
-// }
-// void setReports(void) {
-//   Serial.println("Setting desired reports");
-//   if (myIMU.enableMagnetometer() == true) {
-//     Serial.println(F("Magnetometer enabled"));
-//     Serial.println(F("Output in form x, y, z, in uTesla"));
-//   } else {
-//     Serial.println("Could not enable magnetometer");
-//   }
-// }
-
 
 void setup() {
 
@@ -212,28 +149,11 @@ if (!bno.begin())
     /* There was a problem detecting the BNO055 ... check your connections */
     Serial.print("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
   }
-  // if (!bno08x.begin_I2C(BNO08x_ADDRESS, &Wire)) {
-  //   Serial.println("Failed to find BNO08x chip");
-  //   while (DEBUG_MODE)
-  //     ;
-  // }
-
   // Checking BNO
 // if (myIMU.begin(BNO08X_ADDR, Wire, BNO08X_INT, BNO08X_RST) == false) {
 //     Serial.println("BNO08x not detected at default I2C address. Check your jumpers and the hookup guide. Freezing...");
 //   }
 //   Serial.println("BNO08x found!");
-//     // setReports();
-//     delay(100);
-//     setReports();
-
-
-  // Wire.setClock(400000); //Increase I2C data rate to 400kHz
-
-  // setReports();
-
-  // Serial.println("Reading events");
-  // delay(100);
 
   // Set up oversampling and filter initialization
   bmp.setTemperatureOversampling(BMP3_OVERSAMPLING_8X);
@@ -267,39 +187,18 @@ if (!bno.begin())
     delay(1000);
   }
 
-  release_servo.attach(SERVO_CTRL, 400, 2600);
-  release_servo.write(70);
-  // setReports();
+  // release_servo.attach(SERVO_CTRL, 400, 2600);
+  // release_servo.write(70);
+
   delay(100);
 }
 
-// void setReports(void) {
-//   Serial.println("Setting desired reports");
-//   if (myIMU.enableMagnetometer() == true) {
-//     Serial.println(F("Magnetometer enabled"));
-//     Serial.println(F("Output in form x, y, z, in uTesla"));
-//   } else {
-//     Serial.println("Could not enable magnetometer");
-//   }
-// Serial.println("Setting desired reports");
-//   if (myIMU.enableAccelerometer() == true) {
-//     Serial.println(F("Accelerometer enabled"));
-//     Serial.println(F("Output in form x, y, z, in m/s^2"));
-//   } else {
-//     Serial.println("Could not enable accelerometer");
-//   }
-
-// }
-
 void loop() {
 
-sensors_event_t orientationData , angVelocityData , linearAccelData, magnetometerData, accelerometerData, gravityData;
-  bno.getEvent(&orientationData, Adafruit_BNO055::VECTOR_EULER);
-  bno.getEvent(&angVelocityData, Adafruit_BNO055::VECTOR_GYROSCOPE);
+sensors_event_t linearAccelData, magnetometerData, accelerometerData;
   bno.getEvent(&linearAccelData, Adafruit_BNO055::VECTOR_LINEARACCEL);
   bno.getEvent(&magnetometerData, Adafruit_BNO055::VECTOR_MAGNETOMETER);
   bno.getEvent(&accelerometerData, Adafruit_BNO055::VECTOR_ACCELEROMETER);
-  bno.getEvent(&gravityData, Adafruit_BNO055::VECTOR_GRAVITY);
 
   uint8_t system, gyro, accel, mag = 0;
   bno.getCalibration(&system, &gyro, &accel, &mag);
@@ -439,15 +338,18 @@ sensors_event_t orientationData , angVelocityData , linearAccelData, magnetomete
        + String(float(latitude/10000000.0), 4)+ ","
        + String(float(longitude/10000000.0), 4) + ","
        + String(SIV) + ","
-       + String(echo));
+       + String(echo))
+       + ",,,";
 
     packetCount++;
 
     // Serial.println(packet);
     send_xbee(packet);
   }
-  delay(250);
+  delay(1);
 }
+
+void 
 
 void printEvent(sensors_event_t* event) {
   double x = -1000000, y = -1000000 , z = -1000000; //dumb values, easy to spot problem
@@ -456,24 +358,6 @@ void printEvent(sensors_event_t* event) {
     x = event->acceleration.x;
     y = event->acceleration.y;
     z = event->acceleration.z;
-  }
-  else if (event->type == SENSOR_TYPE_ORIENTATION) {
-    Serial.print("Orient:");
-    x = event->orientation.x;
-    y = event->orientation.y;
-    z = event->orientation.z;
-  }
-  else if (event->type == SENSOR_TYPE_MAGNETIC_FIELD) {
-    Serial.print("Mag:");
-    x = event->magnetic.x;
-    y = event->magnetic.y;
-    z = event->magnetic.z;
-  }
-  else if (event->type == SENSOR_TYPE_GYROSCOPE) {
-    Serial.print("Gyro:");
-    x = event->gyro.x;
-    y = event->gyro.y;
-    z = event->gyro.z;
   }
   else if (event->type == SENSOR_TYPE_ROTATION_VECTOR) {
     Serial.print("Rot:");
@@ -487,38 +371,8 @@ void printEvent(sensors_event_t* event) {
     y = event->acceleration.y;
     z = event->acceleration.z;
   }
-  // else if (event->type == SENSOR_TYPE_GRAVITY) {
-  //   Serial.print("Gravity:");
-  //   x = event->acceleration.x;
-  //   y = event->acceleration.y;
-  //   z = event->acceleration.z;
-  // }
   else {
     Serial.print("Unk:");
   }
-
-  Serial.print("\tx= ");
-  Serial.print(x);
-  Serial.print(" |\ty= ");
-  Serial.print(y);
-  Serial.print(" |\tz= ");
-  Serial.println(z);
-
   delay(1000);
-}
-
-String returnEvent(sensors_event_t* event){
-  double x = -1000000, y = -1000000 , z = -1000000; //dumb values, easy to spot problem
-    if (event->type == SENSOR_TYPE_GYROSCOPE) {
-      // Serial.print("Gyro:");
-      x = event->gyro.x;
-      y = event->gyro.y;
-      z = event->gyro.z;
-      return(String(event->gyro.x) + "," + String(event->gyro.y) + "," + String(event->gyro.z) + ",");
-    }
-    else{
-      return("");
-    }
-    
-
 }
