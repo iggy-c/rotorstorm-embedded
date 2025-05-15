@@ -1,15 +1,24 @@
 #include <Wire.h>                                  //enables I2C
 #include <SparkFun_u-blox_GNSS_Arduino_Library.h>  // enables GNSS
-#include <Adafruit_BNO08x.h>                       // enables BNO085
+// #include <Adafruit_BNO08x.h>                       // enables BNO085
 #include "Adafruit_BMP3XX.h"                       //enables BMP
 #include <Adafruit_Sensor.h>                       //enables adafruit sensors
 #include <Servo.h>                                 // enables servo
+#include <Adafruit_BNO055.h>
+#include <utility/imumaths.h>
 
 #define BMP390_ADDRESS 0x77  // Try 0x76 if this fails
 #define gnssAddress 0x42     // The default I2C address for u-blox modules is 0x42. Change this if required
-#define BNO08x_ADDRESS 0x4A
+// #define BNO08X_ADDR 0x4A // Alternate address if ADR jumper is closed
 #define TACHOMETER_ADRESS 0x12
-
+Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28); // go from wire to wire as needed
+// #define BNO08X_INT  -1
+// //define BNO08X_RST  A5
+// #define BNO08X_RST  -1
+// #define BNO08X_INT  -1
+// //define BNO08X_RST  A5
+// #define BNO08X_RST  -1
+uint16_t BNO055_SAMPLERATE_DELAY_MS = 100; // this could cause timing issues
 #define I2C_SDA 12
 #define I2C_SCL 13
 #define SERVO_CTRL 11
@@ -27,10 +36,10 @@
 Servo release_servo;
 SFE_UBLOX_GNSS myGNSS;
 Adafruit_BMP3XX bmp;
-Adafruit_BNO08x bno08x;
-
-sh2_SensorValue_t sensorValue;
-bool telemetry = false;
+// Adafruit_BNO08x bno08x;
+// BNO08x myIMU;
+// sh2_SensorValue_t sensorValue;
+bool telemetry = true;
 String packet;
 String echo;
 int packetCount = 1;
@@ -39,11 +48,12 @@ float calibrated_pressure;
 int32_t latitude;
 int32_t longitude;
 int32_t gps_altitude;
+uint16_t rpm;
 byte SIV;
 
 bool DEBUG_MODE = true;
 
-uint16_t BNO055_SAMPLERATE_DELAY_MS = 100;
+
 long lastTime = 0;  //Simple local timer. Limits amount if I2C traffic to u-blox module.
 float currentaltitude = bmp.readAltitude(SEALEVELPRESSURE_HPA);
 float truemaximumaltitude = 0;
@@ -112,88 +122,118 @@ void send_xbee(String message) {
 }
 
 
-void setReports(void) {
-  Serial.println("Setting desired reports");
-  if (!bno08x.enableReport(SH2_ACCELEROMETER)) {
-    Serial.println("Could not enable accelerometer");
-  }
-  if (!bno08x.enableReport(SH2_GYROSCOPE_CALIBRATED)) {
-    Serial.println("Could not enable gyroscope");
-  }
-  if (!bno08x.enableReport(SH2_MAGNETIC_FIELD_CALIBRATED)) {
-    Serial.println("Could not enable magnetic field calibrated");
-  }
-  if (!bno08x.enableReport(SH2_LINEAR_ACCELERATION)) {
-    Serial.println("Could not enable linear acceleration");
-  }
-  if (!bno08x.enableReport(SH2_GRAVITY)) {
-    Serial.println("Could not enable gravity vector");
-  }
-  if (!bno08x.enableReport(SH2_ROTATION_VECTOR)) {
-    Serial.println("Could not enable rotation vector");
-  }
-  if (!bno08x.enableReport(SH2_GEOMAGNETIC_ROTATION_VECTOR)) {
-    Serial.println("Could not enable geomagnetic rotation vector");
-  }
-  if (!bno08x.enableReport(SH2_GAME_ROTATION_VECTOR)) {
-    Serial.println("Could not enable game rotation vector");
-  }
-  if (!bno08x.enableReport(SH2_STEP_COUNTER)) {
-    Serial.println("Could not enable step counter");
-  }
-  if (!bno08x.enableReport(SH2_STABILITY_CLASSIFIER)) {
-    Serial.println("Could not enable stability classifier");
-  }
-  if (!bno08x.enableReport(SH2_RAW_ACCELEROMETER)) {
-    Serial.println("Could not enable raw accelerometer");
-  }
-  if (!bno08x.enableReport(SH2_RAW_GYROSCOPE)) {
-    Serial.println("Could not enable raw gyroscope");
-  }
-  if (!bno08x.enableReport(SH2_RAW_MAGNETOMETER)) {
-    Serial.println("Could not enable raw magnetometer");
-  }
-  if (!bno08x.enableReport(SH2_SHAKE_DETECTOR)) {
-    Serial.println("Could not enable shake detector");
-  }
-  if (!bno08x.enableReport(SH2_PERSONAL_ACTIVITY_CLASSIFIER)) {
-    Serial.println("Could not enable personal activity classifier");
-  }
-}
+// void setReports(void) {
+//   Serial.println("Setting desired reports");
+//   if (!bno08x.enableReport(SH2_ACCELEROMETER)) {
+//     Serial.println("Could not enable accelerometer");
+//   }
+//   if (!bno08x.enableReport(SH2_GYROSCOPE_CALIBRATED)) {
+//     Serial.println("Could not enable gyroscope");
+//   }
+//   if (!bno08x.enableReport(SH2_MAGNETIC_FIELD_CALIBRATED)) {
+//     Serial.println("Could not enable magnetic field calibrated");
+//   }
+//   if (!bno08x.enableReport(SH2_LINEAR_ACCELERATION)) {
+//     Serial.println("Could not enable linear acceleration");
+//   }
+//   if (!bno08x.enableReport(SH2_GRAVITY)) {
+//     Serial.println("Could not enable gravity vector");
+//   }
+//   if (!bno08x.enableReport(SH2_ROTATION_VECTOR)) {
+//     Serial.println("Could not enable rotation vector");
+//   }
+//   if (!bno08x.enableReport(SH2_GEOMAGNETIC_ROTATION_VECTOR)) {
+//     Serial.println("Could not enable geomagnetic rotation vector");
+//   }
+//   if (!bno08x.enableReport(SH2_GAME_ROTATION_VECTOR)) {
+//     Serial.println("Could not enable game rotation vector");
+//   }
+//   if (!bno08x.enableReport(SH2_STEP_COUNTER)) {
+//     Serial.println("Could not enable step counter");
+//   }
+//   if (!bno08x.enableReport(SH2_STABILITY_CLASSIFIER)) {
+//     Serial.println("Could not enable stability classifier");
+//   }
+//   if (!bno08x.enableReport(SH2_RAW_ACCELEROMETER)) {
+//     Serial.println("Could not enable raw accelerometer");
+//   }
+//   if (!bno08x.enableReport(SH2_RAW_GYROSCOPE)) {
+//     Serial.println("Could not enable raw gyroscope");
+//   }
+//   if (!bno08x.enableReport(SH2_RAW_MAGNETOMETER)) {
+//     Serial.println("Could not enable raw magnetometer");
+//   }
+//   if (!bno08x.enableReport(SH2_SHAKE_DETECTOR)) {
+//     Serial.println("Could not enable shake detector");
+//   }
+//   if (!bno08x.enableReport(SH2_PERSONAL_ACTIVITY_CLASSIFIER)) {
+//     Serial.println("Could not enable personal activity classifier");
+//   }
+// }
+// void setReports(void) {
+//   Serial.println("Setting desired reports");
+//   if (myIMU.enableMagnetometer() == true) {
+//     Serial.println(F("Magnetometer enabled"));
+//     Serial.println(F("Output in form x, y, z, in uTesla"));
+//   } else {
+//     Serial.println("Could not enable magnetometer");
+//   }
+// }
 
 
 void setup() {
 
+  // initializing wires
   analogReadResolution(12);
   Serial.begin(9600);
   Serial1.setRX(SER1_RX);
   Serial1.setTX(SER1_TX);
   Serial1.begin(9600);
-  while (DEBUG_MODE && !Serial)
-    ;
+  while (DEBUG_MODE && !Serial);
 
   Serial.println("Serial Started");
-
-  Wire.setSDA(I2C_SDA);
-  Wire.setSCL(I2C_SCL);
+  delay(10);
+  Wire.setSDA(I2C_SDA); // i2c setpup
+  Wire.setSCL(I2C_SCL); // i2c setup
   Wire.begin();
   Wire1.setSDA(TACH_SDA);
   Wire1.setSCL(TACH_SCL);
   Wire1.begin();
 
   delay(100);
-
+  // checking BMP
   if (!bmp.begin_I2C()) {  //this is important to initialize the i2c bus
     Serial.println("Could not find a valid BMP3XX sensor, check wiring!");
     while (DEBUG_MODE)
       ;  // Halt execution
   }
-
-  if (!bno08x.begin_I2C(BNO08x_ADDRESS, &Wire)) {
-    Serial.println("Failed to find BNO08x chip");
-    while (DEBUG_MODE)
-      ;
+if (!bno.begin())
+  {
+    /* There was a problem detecting the BNO055 ... check your connections */
+    Serial.print("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
   }
+  // if (!bno08x.begin_I2C(BNO08x_ADDRESS, &Wire)) {
+  //   Serial.println("Failed to find BNO08x chip");
+  //   while (DEBUG_MODE)
+  //     ;
+  // }
+
+  // Checking BNO
+// if (myIMU.begin(BNO08X_ADDR, Wire, BNO08X_INT, BNO08X_RST) == false) {
+//     Serial.println("BNO08x not detected at default I2C address. Check your jumpers and the hookup guide. Freezing...");
+//   }
+//   Serial.println("BNO08x found!");
+//     // setReports();
+//     delay(100);
+//     setReports();
+
+
+  // Wire.setClock(400000); //Increase I2C data rate to 400kHz
+
+  // setReports();
+
+  // Serial.println("Reading events");
+  // delay(100);
 
   // Set up oversampling and filter initialization
   bmp.setTemperatureOversampling(BMP3_OVERSAMPLING_8X);
@@ -229,15 +269,47 @@ void setup() {
 
   release_servo.attach(SERVO_CTRL, 400, 2600);
   release_servo.write(70);
-  setReports();
+  // setReports();
   delay(100);
 }
 
+// void setReports(void) {
+//   Serial.println("Setting desired reports");
+//   if (myIMU.enableMagnetometer() == true) {
+//     Serial.println(F("Magnetometer enabled"));
+//     Serial.println(F("Output in form x, y, z, in uTesla"));
+//   } else {
+//     Serial.println("Could not enable magnetometer");
+//   }
+// Serial.println("Setting desired reports");
+//   if (myIMU.enableAccelerometer() == true) {
+//     Serial.println(F("Accelerometer enabled"));
+//     Serial.println(F("Output in form x, y, z, in m/s^2"));
+//   } else {
+//     Serial.println("Could not enable accelerometer");
+//   }
 
+// }
 
 void loop() {
+
+sensors_event_t orientationData , angVelocityData , linearAccelData, magnetometerData, accelerometerData, gravityData;
+  bno.getEvent(&orientationData, Adafruit_BNO055::VECTOR_EULER);
+  bno.getEvent(&angVelocityData, Adafruit_BNO055::VECTOR_GYROSCOPE);
+  bno.getEvent(&linearAccelData, Adafruit_BNO055::VECTOR_LINEARACCEL);
+  bno.getEvent(&magnetometerData, Adafruit_BNO055::VECTOR_MAGNETOMETER);
+  bno.getEvent(&accelerometerData, Adafruit_BNO055::VECTOR_ACCELEROMETER);
+  bno.getEvent(&gravityData, Adafruit_BNO055::VECTOR_GRAVITY);
+
+  uint8_t system, gyro, accel, mag = 0;
+  bno.getCalibration(&system, &gyro, &accel, &mag);
+
+  Serial.println("--");
+  delay(BNO055_SAMPLERATE_DELAY_MS);
+
   String packet_payload = "";
   int unused = 0;
+  
   if (!bmp.performReading()) {
     Serial.println("Failed to perform reading on BMP :(");
   }
@@ -250,15 +322,11 @@ void loop() {
     gps_altitude = myGNSS.getAltitudeMSL();  // Altitude above Mean Sea Level
     // Serial.println(gps_altitude);
 
+    lastTime = millis(); //Update the timer
     SIV = myGNSS.getSIV();
     // Serial.print(SIV);
   }
-  if (bno08x.wasReset()) {
-    Serial.print("sensor was reset ");
-    setReports();
-  }
-
-  (!bno08x.getSensorEvent(&sensorValue));
+  
 
   //Handle received messages from XBee
   while (Serial1.available()) {
@@ -294,7 +362,7 @@ void loop() {
           echo = "";
         } else if (packet_payload.equals("clo")) {
           Serial.println("priming");
-          release_servo.write(82);
+          release_servo.write(80);
           echo = "";
         } else if (packet_payload.equals("con")) {
           Serial.println("telemetry on");
@@ -344,39 +412,113 @@ void loop() {
   }
 
   if (telemetry) {
+    
 
     String packet =
       ("3194,"                                                                          //TEAM_ID
-       + String(1) + ","                                                                //MISSION_TIME
+       + String(myGNSS.getHour()) + ":" + String(myGNSS.getMinute()) + ":" + String(myGNSS.getSecond()) + ","                                                                //MISSION_TIME
        + String(packetCount) + ","                                                      //PACKET_COUNT
-       + "mode,"                                                                        //MODE
+       + "F,"                                                                        //MODE
        + String(flightState) + ","                                                      //STATE
-       + String(bmp.readAltitude(calibrated_pressure)) + ","                            //ALTITUDE
-       + bmp.readTemperature() + ","                                                    //TEMPERATURE
-       + bmp.readPressure() + ","                                                       //PRESSURE
-       + String(float(analogRead(VOLT_PIN)) * (3.3 / 4095.0) / (680.0 / 1500.0)) + ","  //VOLTAGE
-       + String(sensorValue.un.gyroscope.x) + ","                                       //GYRO X
-       + String(sensorValue.un.gyroscope.y) + ","                                       //GYRO Y
-       + String(sensorValue.un.gyroscope.z) + ","                                       //GYRO Z
-       // + String(gyro)
-       + ",,,,,,"
-       // + String(String(&angVelocityData)) + ","
-       // + String(String(&angVelocityData)) + ","
-       // + String(sensorValue.un.linearAcceleration.x) + ","
-       // + String(sensorValue.un.linearAcceleration.y) + ","
-       // + String(sensorValue.un.linearAcceleration.z) + ","
-       + ",,,rotate_rate,"
-       + "gpstime,"
-       + String(gps_altitude) + ","
-       + String(latitude) + ","
-       + String(longitude) + ","
+       + String(float(bmp.readAltitude(calibrated_pressure)), 1) + ","                            //ALTITUDE
+       + String(float(bmp.readTemperature()), 1) + ","                                                    //TEMPERATURE
+       + String(float(bmp.readPressure()/1000), 1) + ","                                                       //PRESSURE
+       + String(float((analogRead(VOLT_PIN)) * (3.3 / 4095.0) / (600.0 / 1985.5)), 1) + ","  //VOLTAGE
+       + String(float(linearAccelData.acceleration.x)) + ","                                       //GYRO X
+       + String(float(linearAccelData.acceleration.y)) + ","                                       //GYRO Y
+       + String(float(linearAccelData.acceleration.z)) + ","                                       //GYRO Z
+       + String(float(accelerometerData.acceleration.x)) + ","
+       + String(float(accelerometerData.acceleration.y)) + ","
+       + String(float(accelerometerData.acceleration.z)) + ","
+       + String(float(magnetometerData.magnetic.x/100)) + ","
+       + String(float(magnetometerData.magnetic.y/100)) + ","
+       + String(float(magnetometerData.magnetic.z/100)) + ","
+       + String(rpm) + ","
+       + String(myGNSS.getHour()) + ":" + String(myGNSS.getMinute()) + ":" + String(myGNSS.getSecond()) + ","
+       + String(float(gps_altitude/1000.0), 1) + ","
+       + String(float(latitude/10000000.0), 4)+ ","
+       + String(float(longitude/10000000.0), 4) + ","
        + String(SIV) + ","
-       + "echo" + "z");
+       + String(echo));
 
     packetCount++;
 
-    Serial.println(packet);
+    // Serial.println(packet);
     send_xbee(packet);
   }
   delay(250);
+}
+
+void printEvent(sensors_event_t* event) {
+  double x = -1000000, y = -1000000 , z = -1000000; //dumb values, easy to spot problem
+  if (event->type == SENSOR_TYPE_ACCELEROMETER) {
+    Serial.print("Accl:");
+    x = event->acceleration.x;
+    y = event->acceleration.y;
+    z = event->acceleration.z;
+  }
+  else if (event->type == SENSOR_TYPE_ORIENTATION) {
+    Serial.print("Orient:");
+    x = event->orientation.x;
+    y = event->orientation.y;
+    z = event->orientation.z;
+  }
+  else if (event->type == SENSOR_TYPE_MAGNETIC_FIELD) {
+    Serial.print("Mag:");
+    x = event->magnetic.x;
+    y = event->magnetic.y;
+    z = event->magnetic.z;
+  }
+  else if (event->type == SENSOR_TYPE_GYROSCOPE) {
+    Serial.print("Gyro:");
+    x = event->gyro.x;
+    y = event->gyro.y;
+    z = event->gyro.z;
+  }
+  else if (event->type == SENSOR_TYPE_ROTATION_VECTOR) {
+    Serial.print("Rot:");
+    x = event->gyro.x;
+    y = event->gyro.y;
+    z = event->gyro.z;
+  }
+  else if (event->type == SENSOR_TYPE_LINEAR_ACCELERATION) {
+    Serial.print("Linear:");
+    x = event->acceleration.x;
+    y = event->acceleration.y;
+    z = event->acceleration.z;
+  }
+  // else if (event->type == SENSOR_TYPE_GRAVITY) {
+  //   Serial.print("Gravity:");
+  //   x = event->acceleration.x;
+  //   y = event->acceleration.y;
+  //   z = event->acceleration.z;
+  // }
+  else {
+    Serial.print("Unk:");
+  }
+
+  Serial.print("\tx= ");
+  Serial.print(x);
+  Serial.print(" |\ty= ");
+  Serial.print(y);
+  Serial.print(" |\tz= ");
+  Serial.println(z);
+
+  delay(1000);
+}
+
+String returnEvent(sensors_event_t* event){
+  double x = -1000000, y = -1000000 , z = -1000000; //dumb values, easy to spot problem
+    if (event->type == SENSOR_TYPE_GYROSCOPE) {
+      // Serial.print("Gyro:");
+      x = event->gyro.x;
+      y = event->gyro.y;
+      z = event->gyro.z;
+      return(String(event->gyro.x) + "," + String(event->gyro.y) + "," + String(event->gyro.z) + ",");
+    }
+    else{
+      return("");
+    }
+    
+
 }

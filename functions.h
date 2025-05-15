@@ -44,87 +44,90 @@ void send_xbee(String message) {
     Serial.println(message);
 }
 
-void setReports(Adafruit_BNO08x bno08x) {
-  Serial.println("Setting desired reports");
-  if (!bno08x.enableReport(SH2_ACCELEROMETER)) {
-    Serial.println("Could not enable accelerometer");
-  }
-  if (!bno08x.enableReport(SH2_GYROSCOPE_CALIBRATED)) {
-    Serial.println("Could not enable gyroscope");
-  }
-  if (!bno08x.enableReport(SH2_MAGNETIC_FIELD_CALIBRATED)) {
-    Serial.println("Could not enable magnetic field calibrated");
-  }
-  if (!bno08x.enableReport(SH2_LINEAR_ACCELERATION)) {
-    Serial.println("Could not enable linear acceleration");
-  }
-  if (!bno08x.enableReport(SH2_GRAVITY)) {
-    Serial.println("Could not enable gravity vector");
-  }
-  if (!bno08x.enableReport(SH2_ROTATION_VECTOR)) {
-    Serial.println("Could not enable rotation vector");
-  }
-  if (!bno08x.enableReport(SH2_GEOMAGNETIC_ROTATION_VECTOR)) {
-    Serial.println("Could not enable geomagnetic rotation vector");
-  }
-  if (!bno08x.enableReport(SH2_GAME_ROTATION_VECTOR)) {
-    Serial.println("Could not enable game rotation vector");
-  }
-  if (!bno08x.enableReport(SH2_STEP_COUNTER)) {
-    Serial.println("Could not enable step counter");
-  }
-  if (!bno08x.enableReport(SH2_STABILITY_CLASSIFIER)) {
-    Serial.println("Could not enable stability classifier");
-  }
-  if (!bno08x.enableReport(SH2_RAW_ACCELEROMETER)) {
-    Serial.println("Could not enable raw accelerometer");
-  }
-  if (!bno08x.enableReport(SH2_RAW_GYROSCOPE)) {
-    Serial.println("Could not enable raw gyroscope");
-  }
-  if (!bno08x.enableReport(SH2_RAW_MAGNETOMETER)) {
-    Serial.println("Could not enable raw magnetometer");
-  }
-  if (!bno08x.enableReport(SH2_SHAKE_DETECTOR)) {
-    Serial.println("Could not enable shake detector");
-  }
-  if (!bno08x.enableReport(SH2_PERSONAL_ACTIVITY_CLASSIFIER)) {
-    Serial.println("Could not enable personal activity classifier");
-  }
-}
-void printActivity(uint8_t activity_id) {
-  switch (activity_id) {
-  case PAC_UNKNOWN:
-    Serial.print("Unknown");
-    break;
-  case PAC_IN_VEHICLE:
-    Serial.print("In Vehicle");
-    break;
-  case PAC_ON_BICYCLE:
-    Serial.print("On Bicycle");
-    break;
-  case PAC_ON_FOOT:
-    Serial.print("On Foot");
-    break;
-  case PAC_STILL:
-    Serial.print("Still");
-    break;
-  case PAC_TILTING:
-    Serial.print("Tilting");
-    break;
-  case PAC_WALKING:
-    Serial.print("Walking");
-    break;
-  case PAC_RUNNING:
-    Serial.print("Running");
-    break;
-  case PAC_ON_STAIRS:
-    Serial.print("On Stairs");
-    break;
-  default:
-    Serial.print("NOT LISTED");
-  }
-  Serial.print(" (");
-  Serial.print(activity_id);
-  Serial.print(")");
-}
+// void setReports(Adafruit_BNO08x bno08x) {
+//   Serial.println("Setting desired reports");
+//   if (!bno08x.enableReport(SH2_ACCELEROMETER)) {
+//     Serial.println("Could not enable accelerometer");
+//   }
+//   if (!bno08x.enableReport(SH2_GYROSCOPE_CALIBRATED)) {
+//     Serial.println("Could not enable gyroscope");
+//   }
+//   if (!bno08x.enableReport(SH2_MAGNETIC_FIELD_CALIBRATED)) {
+//     Serial.println("Could not enable magnetic field calibrated");
+//   }
+//   if (!bno08x.enableReport(SH2_LINEAR_ACCELERATION)) {
+//     Serial.println("Could not enable linear acceleration");
+//   }
+//   if (!bno08x.enableReport(SH2_GRAVITY)) {
+//     Serial.println("Could not enable gravity vector");
+//   }
+//   if (!bno08x.enableReport(SH2_ROTATION_VECTOR)) {
+//     Serial.println("Could not enable rotation vector");
+//   }
+//   if (!bno08x.enableReport(SH2_GEOMAGNETIC_ROTATION_VECTOR)) {
+//     Serial.println("Could not enable geomagnetic rotation vector");
+//   }
+//   if (!bno08x.enableReport(SH2_GAME_ROTATION_VECTOR)) {
+//     Serial.println("Could not enable game rotation vector");
+//   }
+//   if (!bno08x.enableReport(SH2_STEP_COUNTER)) {
+//     Serial.println("Could not enable step counter");
+//   }
+//   if (!bno08x.enableReport(SH2_STABILITY_CLASSIFIER)) {
+//     Serial.println("Could not enable stability classifier");
+//   }
+//   if (!bno08x.enableReport(SH2_RAW_ACCELEROMETER)) {
+//     Serial.println("Could not enable raw accelerometer");
+//   }
+//   if (!bno08x.enableReport(SH2_RAW_GYROSCOPE)) {
+//     Serial.println("Could not enable raw gyroscope");
+//   }
+//   if (!bno08x.enableReport(SH2_RAW_MAGNETOMETER)) {
+//     Serial.println("Could not enable raw magnetometer");
+//   }
+//   if (!bno08x.enableReport(SH2_SHAKE_DETECTOR)) {
+//     Serial.println("Could not enable shake detector");
+//   }
+//   if (!bno08x.enableReport(SH2_PERSONAL_ACTIVITY_CLASSIFIER)) {
+//     Serial.println("Could not enable personal activity classifier");
+//   }
+
+// }
+
+// }
+// void printActivity(uint8_t activity_id) {
+//   switch (activity_id) {
+//   case PAC_UNKNOWN:
+//     Serial.print("Unknown");
+//     break;
+//   case PAC_IN_VEHICLE:
+//     Serial.print("In Vehicle");
+//     break;
+//   case PAC_ON_BICYCLE:
+//     Serial.print("On Bicycle");
+//     break;
+//   case PAC_ON_FOOT:
+//     Serial.print("On Foot");
+//     break;
+//   case PAC_STILL:
+//     Serial.print("Still");
+//     break;
+//   case PAC_TILTING:
+//     Serial.print("Tilting");
+//     break;
+//   case PAC_WALKING:
+//     Serial.print("Walking");
+//     break;
+//   case PAC_RUNNING:
+//     Serial.print("Running");
+//     break;
+//   case PAC_ON_STAIRS:
+//     Serial.print("On Stairs");
+//     break;
+//   default:
+//     Serial.print("NOT LISTED");
+//   }
+//   Serial.print(" (");
+//   Serial.print(activity_id);
+//   Serial.print(")");
+// }
