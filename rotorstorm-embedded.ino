@@ -1,19 +1,17 @@
 #include <Wire.h>                                  //enables I2C
 #include <SparkFun_u-blox_GNSS_Arduino_Library.h>  // enables GNSS
-// #include <Adafruit_BNO08x.h>                       // enables BNO085
-#include "Adafruit_BMP3XX.h"                       //enables BMP
-#include <Adafruit_Sensor.h>                       //enables adafruit sensors
-#include <Servo.h>                                 // enables servo
-#include <Adafruit_BNO055.h>
+#include "Adafruit_BMP3XX.h"  //enables BMP
+#include <Adafruit_Sensor.h>  //enables adafruit sensors
+#include <Servo.h>            // enables servo
+#include <Adafruit_BNO055.h> //enables BNO055
 #include <utility/imumaths.h>
+#include <arduino-timer.h>
+#include "functions.h"
 
 #define BMP390_ADDRESS 0x77  // Try 0x76 if this fails
 #define gnssAddress 0x42     // The default I2C address for u-blox modules is 0x42. Change this if required
-// #define BNO08X_ADDR 0x4A // Alternate address if ADR jumper is closed
 #define TACHOMETER_ADRESS 0x12
-Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28); // go from wire to wire as needed
 
-uint16_t BNO055_SAMPLERATE_DELAY_MS = 100; // this could cause timing issues
 #define I2C_SDA 12
 #define I2C_SCL 13
 #define SERVO_CTRL 11
@@ -31,13 +29,14 @@ uint16_t BNO055_SAMPLERATE_DELAY_MS = 100; // this could cause timing issues
 Servo release_servo;
 SFE_UBLOX_GNSS myGNSS;
 Adafruit_BMP3XX bmp;
-// Adafruit_BNO08x bno08x;
-// BNO08x myIMU;
-// sh2_SensorValue_t sensorValue;
+Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);  // go from wire to wire as needed
+auto timer = timer_create_default();
+
 bool telemetry = true;
-String packet;
-String echo;
 int packetCount = 1;
+uint16_t BNO055_SAMPLERATE_DELAY_MS = 100;  // this could cause timing issues
+String packet = "adsf";
+String echo;
 
 float calibrated_pressure;
 int32_t latitude;
@@ -59,6 +58,8 @@ bool apogee = false;
 bool descent = false;
 bool probe_release = false;
 
+
+
 float maxaltitude = 0;
 //  float currentaltitude = 0;
 float previousaltitude = 0;
@@ -71,51 +72,6 @@ float bmaltitude = 0;
 
 sensors_event_t linearAccelData, magnetometerData, accelerometerData;
 
-void send_xbee(String message) {
-
-  uint8_t payloadLength = message.length();
-  uint8_t frame[20 + payloadLength];
-  uint8_t frameLength = 14 + payloadLength;
-  uint8_t checksum = 0;
-
-  frame[0] = START_DELIMITER;
-  frame[1] = (frameLength >> 8) & 0xFF;
-  frame[2] = frameLength & 0xFF;
-  frame[3] = 0x10;
-  frame[4] = 0x01;
-
-  frame[5] = 0x00;
-  frame[6] = 0x13;
-  frame[7] = 0xA2;
-  frame[8] = 0x00;
-  frame[9] = 0x42;
-  frame[10] = 0x5B;
-  frame[11] = 0xD6;
-  frame[12] = 0x18;
-
-  frame[13] = 0xFF;
-  frame[14] = 0xFE;
-  frame[15] = 0x00;
-  frame[16] = 0x01;
-
-  // Copy the message into the payload
-  for (uint8_t i = 0; i < payloadLength; i++) {
-    frame[17 + i] = message[i];
-    checksum += message[i];
-  }
-
-  checksum += 0x10 + 0x01;
-  checksum += 0x00 + 0x13 + 0xA2 + 0x00 + 0x42 + 0x5B + 0xD6 + 0x18;
-  checksum += 0xFF + 0xFE + 0x00 + 0x01;
-  checksum = 0xFF - checksum;
-
-  frame[17 + payloadLength] = checksum;
-
-  Serial1.write(frame, 18 + payloadLength);
-
-  Serial.print("XBee API frame sent: ");
-  Serial.println(message);
-}
 
 
 
@@ -126,34 +82,38 @@ void setup() {
   Serial1.setRX(SER1_RX);
   Serial1.setTX(SER1_TX);
   Serial1.begin(9600);
-  while (DEBUG_MODE && !Serial);
+  while (DEBUG_MODE && !Serial)
+    ;
 
   Serial.println("Serial Started");
-  delay(10);
-  // Wire.setSDA(I2C_SDA); // i2c setpup
-  // Wire.setSCL(I2C_SCL); // i2c setup
-  // Wire.begin();
+  delay(100);
+  Serial.println("wire starting");
+  Wire.setSDA(I2C_SDA); 
+  Wire.setSCL(I2C_SCL);
+  Wire.begin();
+  Serial.println("wire started");
   Wire1.setSDA(TACH_SDA);
   Wire1.setSCL(TACH_SCL);
   Wire1.begin();
 
   delay(100);
   // checking BMP
-  if (!bmp.begin_I2C()) {  //this is important to initialize the i2c bus
-    Serial.println("Could not find a valid BMP3XX sensor, check wiring!");
-    while (DEBUG_MODE)
-      ;  // Halt execution
+  if (!bmp.begin_I2C(0x76)) { 
+    if (!bmp.begin_I2C(0x77)) { 
+      Serial.println("Could not find a valid BMP3XX sensor, check wiring!");
+      while (DEBUG_MODE)
+        ; 
+    }
   }
-if (!bno.begin())
-  {
+  if (!bno.begin()) {
     /* There was a problem detecting the BNO055 ... check your connections */
     Serial.print("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
   }
   // Checking BNO
-// if (myIMU.begin(BNO08X_ADDR, Wire, BNO08X_INT, BNO08X_RST) == false) {
-//     Serial.println("BNO08x not detected at default I2C address. Check your jumpers and the hookup guide. Freezing...");
-//   }
-//   Serial.println("BNO08x found!");
+  // if (myIMU.begin(BNO08X_ADDR, Wire, BNO08X_INT, BNO08X_RST) == false) {
+  //     Serial.println("BNO08x not detected at default I2C address. Check your jumpers and the hookup guide. Freezing...");
+  //   }
+  //   Serial.println("BNO08x found!");
 
   // Set up oversampling and filter initialization
   bmp.setTemperatureOversampling(BMP3_OVERSAMPLING_8X);
@@ -165,7 +125,7 @@ if (!bno.begin())
 
   for (int i = 0; i < 10; i++) {
     if (!bmp.performReading()) {
-      Serial.println("Failed to perform reading :(");
+      Serial.println("Failed to perform reading on bmp :(");
     }
 
     calibrated_pressure = bmp.pressure / 100.0;
@@ -182,20 +142,32 @@ if (!bno.begin())
   //beginning of GNSS setup
   delay(100);
 
-  while (myGNSS.begin(Wire, gnssAddress) == false) {
-    Serial.println(F("u-blox GNSS not detected. Retrying..."));
-    delay(1000);
-  }
+  // if (myGNSS.begin(Wire, gnssAddress) == false) {
+  //   Serial.println(F("u-blox GNSS not detected"));
+  //   while(DEBUG_MODE){
+  //     ;
+  //   }
+  // }
 
-  // release_servo.attach(SERVO_CTRL, 400, 2600);
+  release_servo.attach(SERVO_CTRL, 400, 2600);
   // release_servo.write(70);
 
   delay(100);
+
+  timer.every(1000, send, &packet);
+  timer.every(1000, incr);
+}
+
+bool incr(void *){
+  packetCount++;
+  return true;
 }
 
 void loop() {
 
-sensors_event_t linearAccelData, magnetometerData, accelerometerData;
+  timer.tick();
+
+  sensors_event_t linearAccelData, magnetometerData, accelerometerData;
   bno.getEvent(&linearAccelData, Adafruit_BNO055::VECTOR_LINEARACCEL);
   bno.getEvent(&magnetometerData, Adafruit_BNO055::VECTOR_MAGNETOMETER);
   bno.getEvent(&accelerometerData, Adafruit_BNO055::VECTOR_ACCELEROMETER);
@@ -203,33 +175,30 @@ sensors_event_t linearAccelData, magnetometerData, accelerometerData;
   uint8_t system, gyro, accel, mag = 0;
   bno.getCalibration(&system, &gyro, &accel, &mag);
 
-  Serial.println("--");
-  delay(BNO055_SAMPLERATE_DELAY_MS);
 
   String packet_payload = "";
   int unused = 0;
-  
+
   if (!bmp.performReading()) {
     Serial.println("Failed to perform reading on BMP :(");
   }
 
-  Serial.println("end of bno");
 
   // beginning of GNSS stuff
-  if (myGNSS.getPVT() == true) {
-    latitude = myGNSS.getLatitude();
-    // Serial.print(myGNSS.getLatitude());
-    longitude = myGNSS.getLongitude();
-    // Serial.print(myGNSS.getLongitude());
-    gps_altitude = myGNSS.getAltitudeMSL();  // Altitude above Mean Sea Level
-    // Serial.println(gps_altitude);
+  // if (myGNSS.getPVT() == true) {
+  //   latitude = myGNSS.getLatitude();
+  //   // Serial.print(myGNSS.getLatitude());
+  //   longitude = myGNSS.getLongitude();
+  //   // Serial.print(myGNSS.getLongitude());
+  //   gps_altitude = myGNSS.getAltitudeMSL();  // Altitude above Mean Sea Level
+  //   // Serial.println(gps_altitude);
 
-    lastTime = millis(); //Update the timer
-    SIV = myGNSS.getSIV();
-    // Serial.print(SIV);
-    Serial.println("end of gnss");
-  }
-  
+  //   lastTime = millis();  //Update the timer
+  //   SIV = myGNSS.getSIV();
+  //   // Serial.print(SIV);
+  //   Serial.println("end of gnss");
+  // }
+
 
   //Handle received messages from XBee
   while (Serial1.available()) {
@@ -286,7 +255,6 @@ sensors_event_t linearAccelData, magnetometerData, accelerometerData;
   }
   // Serial.println(packet_payload);
   Serial1.flush();
-  Serial.println("end of xbee");
 
 
   currentaltitude = bmp.readAltitude(intPress);
@@ -302,8 +270,6 @@ sensors_event_t linearAccelData, magnetometerData, accelerometerData;
   // Serial.println("flightstate: ");
   // Serial.println(flightState);
 
-Serial.println("end of state updating");
-
   Wire1.requestFrom(TACHOMETER_ADRESS, 2);
   if (Wire1.available() == 2) {                // If 2 bytes are available
     byte lowByte = Wire1.read();               // Read low byte
@@ -314,148 +280,44 @@ Serial.println("end of state updating");
     Serial.println(rpm);
     Serial.println("******");
   } else {
-    Serial.println("incomplete data wire1");
+    // Serial.println("incomplete data wire1");
   }
-Serial.println("end of tachometer");
-  if (telemetry) {
-    
 
-    String packet =
-      ("3194,"                                                                          //TEAM_ID
-       + String(myGNSS.getHour()) + ":" + String(myGNSS.getMinute()) + ":" + String(myGNSS.getSecond()) + ","                                                                //MISSION_TIME
-       + String(packetCount) + ","                                                      //PACKET_COUNT
-       + "F,"                                                                        //MODE
-       + String(flightState) + ","                                                      //STATE
-       + String(float(bmp.readAltitude(calibrated_pressure)), 1) + ","                            //ALTITUDE
-       + String(float(bmp.readTemperature()), 1) + ","                                                    //TEMPERATURE
-       + String(float(bmp.readPressure()/1000), 1) + ","                                                       //PRESSURE
-       + String(float((analogRead(VOLT_PIN)) * (3.3 / 4095.0) / (600.0 / 1985.5)), 1) + ","  //VOLTAGE
-       + String(float(linearAccelData.acceleration.x)) + ","                                       //GYRO X
-       + String(float(linearAccelData.acceleration.y)) + ","                                       //GYRO Y
-       + String(float(linearAccelData.acceleration.z)) + ","                                       //GYRO Z
+
+  if (telemetry) {
+    packet =
+      ("3194,"                                                                                                 //TEAM_ID
+      + String(0)
+      //  + String(myGNSS.getHour()) + ":" + String(myGNSS.getMinute()) + ":" + String(myGNSS.getSecond()) + ","  //MISSION_TIME
+       + "0:00:00,"
+       + String(packetCount) + ","                                                                             //PACKET_COUNT
+       + "F,"                                                                                                  //MODE
+       + String(flightState) + ","                                                                             //STATE
+       + String(float(bmp.readAltitude(calibrated_pressure)), 1) + ","                                         //ALTITUDE
+       + String(float(bmp.readTemperature()), 1) + ","                                                         //TEMPERATURE
+       + String(float(bmp.readPressure() / 1000), 1) + ","                                                     //PRESSURE
+       + String(float((analogRead(VOLT_PIN)) * (3.3 / 4095.0) / (600.0 / 1985.5)), 1) + ","                    //VOLTAGE
+       + String(float(linearAccelData.acceleration.x)) + ","                                                   //GYRO X
+       + String(float(linearAccelData.acceleration.y)) + ","                                                   //GYRO Y
+       + String(float(linearAccelData.acceleration.z)) + ","                                                   //GYRO Z
        + String(float(accelerometerData.acceleration.x)) + ","
        + String(float(accelerometerData.acceleration.y)) + ","
        + String(float(accelerometerData.acceleration.z)) + ","
-       + String(float(magnetometerData.magnetic.x/100)) + ","
-       + String(float(magnetometerData.magnetic.y/100)) + ","
-       + String(float(magnetometerData.magnetic.z/100)) + ","
+       + String(float(magnetometerData.magnetic.x / 100)) + ","
+       + String(float(magnetometerData.magnetic.y / 100)) + ","
+       + String(float(magnetometerData.magnetic.z / 100)) + ","
        + String(rpm) + ","
-       + String(myGNSS.getHour()) + ":" + String(myGNSS.getMinute()) + ":" + String(myGNSS.getSecond()) + ","
-       + String(float(gps_altitude/1000.0), 1) + ","
-       + String(float(latitude/10000000.0), 4)+ ","
-       + String(float(longitude/10000000.0), 4) + ","
-       + String(SIV) + ","
+      //  + String(myGNSS.getHour()) + ":" + String(myGNSS.getMinute()) + ":" + String(myGNSS.getSecond()) + ","
+      + "00:00:00,"
+      //  + String(float(gps_altitude / 1000.0), 1) + ","
+      //  + String(float(latitude / 10000000.0), 4) + ","
+      //  + String(float(longitude / 10000000.0), 4) + ","
+      //  + String(SIV) + ","
+      + "0,0,0,0,"
        + String(echo))
-       + ",,a,b";
+      + ",,ON,N/A";
 
-    packetCount++;
 
-    // Serial.println(packet);
-    send_xbee(packet);
   }
-  Serial.println("end of packet");
   delay(1);
-}
-
-
-void setup1()
-{
-// Serial.begin(9600);
-// analogReadResolution(12);
-
-// Wire.setSDA(I2C_SDA); // i2c setpup
-// Wire.setSCL(I2C_SCL); // i2c setup
-// Wire.begin();
-// delay(100);
-//   // checking BMP
-//   if (!bmp.begin_I2C()) {  //this is important to initialize the i2c bus
-//     Serial.println("Could not find a valid BMP3XX sensor, check wiring!");
-//     while (DEBUG_MODE)
-//       ;  // Halt execution
-//   }
-// if (!bno.begin())
-//   {
-//     /* There was a problem detecting the BNO055 ... check your connections */
-//     Serial.print("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
-//   }
-//   // Checking BNO
-// // if (myIMU.begin(BNO08X_ADDR, Wire, BNO08X_INT, BNO08X_RST) == false) {
-// //     Serial.println("BNO08x not detected at default I2C address. Check your jumpers and the hookup guide. Freezing...");
-// //   }
-// //   Serial.println("BNO08x found!");
-
-//   // Set up oversampling and filter initialization
-//   bmp.setTemperatureOversampling(BMP3_OVERSAMPLING_8X);
-//   bmp.setPressureOversampling(BMP3_OVERSAMPLING_4X);
-//   bmp.setIIRFilterCoeff(BMP3_IIR_FILTER_COEFF_3);
-//   bmp.setOutputDataRate(BMP3_ODR_50_HZ);
-
-//   delay(100);
-
-//   for (int i = 0; i < 10; i++) {
-//     if (!bmp.performReading()) {
-//       Serial.println("Failed to perform reading :(");
-//     }
-
-//     calibrated_pressure = bmp.pressure / 100.0;
-
-//     if (DEBUG_MODE) {
-//       Serial.print("Temperature: ");
-//       Serial.println(bmp.temperature);
-
-//       Serial.print("Pressure: ");
-//       Serial.println(calibrated_pressure);
-//     }
-//   }
-
-//   //beginning of GNSS setup
-//   delay(100);
-
-//   while (myGNSS.begin(Wire, gnssAddress) == false) {
-//     Serial.println(F("u-blox GNSS not detected. Retrying..."));
-//     delay(1000);
-//   }
-
-  // release_servo.attach(SERVO_CTRL, 400, 2600);
-  // release_servo.write(70);
-
-  delay(100);
-
-}
-void loop1 ()
-{
-// // sensors_event_t linearAccelData, magnetometerData, accelerometerData;
-//   bno.getEvent(&linearAccelData, Adafruit_BNO055::VECTOR_LINEARACCEL);
-//   bno.getEvent(&magnetometerData, Adafruit_BNO055::VECTOR_MAGNETOMETER);
-//   bno.getEvent(&accelerometerData, Adafruit_BNO055::VECTOR_ACCELEROMETER);
-
-//   uint8_t system, gyro, accel, mag = 0;
-//   bno.getCalibration(&system, &gyro, &accel, &mag);
-
-//   Serial.println("--");
-//   delay(BNO055_SAMPLERATE_DELAY_MS);
-
-// if (!bmp.performReading()) {
-//     Serial.println("Failed to perform reading on BMP :(");
-//   }
-
-//   Serial.println("end of bno");
-
-//   // beginning of GNSS stuff
-//   if (myGNSS.getPVT() == true) {
-//     latitude = myGNSS.getLatitude();
-//     // Serial.print(myGNSS.getLatitude());
-//     longitude = myGNSS.getLongitude();
-//     // Serial.print(myGNSS.getLongitude());
-//     gps_altitude = myGNSS.getAltitudeMSL();  // Altitude above Mean Sea Level
-//     // Serial.println(gps_altitude);
-
-//     lastTime = millis(); //Update the timer
-//     SIV = myGNSS.getSIV();
-//     // Serial.print(SIV);
-//     Serial.println("end of gnss");
-//   }
-
-
-delay(500);
 }
