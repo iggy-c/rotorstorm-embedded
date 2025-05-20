@@ -1,9 +1,16 @@
-bool send(void *msg_ptr) {
-  String message = (*(String*)msg_ptr);
+bool send(void *) {
   uint8_t payloadLength = message.length();
   uint8_t frame[20 + payloadLength];
   uint8_t frameLength = 14 + payloadLength;
   uint8_t checksum = 0;
+
+  int indexA = 0;
+  for (int count = 0; count < 4; count++){
+    indexA = message.substring(indexA).indexOf(",");
+  }
+  if(message.substring(indexA, indexA+7).equals("APOGEE")){
+    *sentApo = true;
+  }
 
   frame[0] = 0x7E;                       //start delimiter
   frame[1] = (frameLength >> 8) & 0xFF;  //length

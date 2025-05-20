@@ -6,7 +6,8 @@
 #include <Adafruit_BNO055.h> //enables BNO055
 #include <utility/imumaths.h>
 #include <arduino-timer.h>
-#include "functions.h"
+// #include "functions.h"
+
 
 #define BMP390_ADDRESS 0x77  // Try 0x76 if this fails
 #define gnssAddress 0x42     // The default I2C address for u-blox modules is 0x42. Change this if required
@@ -46,10 +47,12 @@ uint16_t rpm;
 byte SIV;
 
 bool DEBUG_MODE = false;
+bool sentApo = false;
+String flightState = "LAUNCH_PAD";
 
 
 long lastTime = 0;  //Simple local timer. Limits amount if I2C traffic to u-blox module.
-float currentaltitude = bmp.readAltitude(SEALEVELPRESSURE_HPA);
+// float currentaltitude = bmp.readAltitude(SEALEVELPRESSURE_HPA);
 float truemaximumaltitude = 0;
 float intPress;
 bool launch_pad = true;
@@ -61,7 +64,7 @@ bool probe_release = false;
 
 
 float maxaltitude = 0;
-//  float currentaltitude = 0;
+ float currentaltitude = 0;
 float previousaltitude = 0;
 float ppreviousaltitude = 0;
 float pppreviousaltitude = 0;
@@ -73,6 +76,57 @@ float bmaltitude = 0;
 sensors_event_t linearAccelData, magnetometerData, accelerometerData;
 
 
+bool send(void *) {
+  uint8_t payloadLength = packet.length();
+  uint8_t frame[20 + payloadLength];
+  uint8_t frameLength = 14 + payloadLength;
+  uint8_t checksum = 0;
+
+  if (sentApo == false && (flightState == "DESCENT" || flightState == "APOGEE")){
+    sentApo = true;
+  }
+
+  frame[0] = 0x7E;                       //start delimiter
+  frame[1] = (frameLength >> 8) & 0xFF;  //length
+  frame[2] = frameLength & 0xFF;         //length
+  frame[3] = 0x10;                       //frame type
+  frame[4] = 0x01;                       //frame id
+
+  frame[5] = 0x00;  //64-bit destination address
+  frame[6] = 0x13;
+  frame[7] = 0xA2;
+  frame[8] = 0x00;
+  frame[9] = 0x42;
+  frame[10] = 0x5B;
+  frame[11] = 0xD6;
+  frame[12] = 0x18;
+
+  frame[13] = 0xFF;  //16-bit destination address
+  frame[14] = 0xFE;
+
+  frame[15] = 0x00;  //broadcast radius
+  frame[16] = 0x00;  //options
+
+  // Copy the message into the payload
+  for (uint8_t i = 0; i < payloadLength; i++) {
+    frame[17 + i] = packet[i];
+    checksum += packet[i];
+  }
+
+  checksum += 0x10 + 0x01;
+  checksum += 0x00 + 0x13 + 0xA2 + 0x00 + 0x42 + 0x5B + 0xD6 + 0x18;
+  checksum += 0xFF + 0xFE + 0x00 + 0x00;
+  checksum = 0xFF - checksum;
+
+  frame[17 + payloadLength] = checksum;
+
+  Serial1.write(frame, 18 + payloadLength);
+
+  Serial.print("XBee API frame sent: ");
+  Serial.println(packet);
+
+  return true;
+}
 
 
 void setup() {
@@ -150,11 +204,11 @@ void setup() {
   // }
 
   release_servo.attach(SERVO_CTRL, 400, 2600);
-  // release_servo.write(70);
+  release_servo.write(80);
 
   delay(100);
 
-  timer.every(1000, send, &packet);
+  timer.every(1000, send);
   timer.every(1000, incr);
 }
 
@@ -228,14 +282,15 @@ void loop() {
         if (packet_payload.equals("cal")) {
           Serial.println("calibrating");
           calibrated_pressure = bmp.pressure / 100;
+          echo = "CAL";
         } else if (packet_payload.equals("rel")) {
           Serial.println("releasing");
           release_servo.write(65);
-          echo = "";
+          echo = "MECSERVOOFF"; // CanSat is "off" the rocket body
         } else if (packet_payload.equals("clo")) {
           Serial.println("priming");
           release_servo.write(80);
-          echo = "";
+          echo = "MECSERVOON"; // CanSat is "on" the rocket body
         } else if (packet_payload.equals("con")) {
           Serial.println("telemetry on");
           telemetry = true;
@@ -257,9 +312,9 @@ void loop() {
   Serial1.flush();
 
 
-  currentaltitude = bmp.readAltitude(intPress);
+  currentaltitude = bmp.readAltitude(calibrated_pressure);
 
-  String flightState = statemachine(currentaltitude, previousaltitude, ppreviousaltitude, pppreviousaltitude, ppppreviousaltitude, pppppreviousaltitude, maximumaltitude, bmaltitude);
+  flightState = statemachine(currentaltitude, previousaltitude, ppreviousaltitude, pppreviousaltitude, ppppreviousaltitude, pppppreviousaltitude, maximumaltitude, bmaltitude);
   bmaltitude = maximumaltitude;
   maximumaltitude = pppppreviousaltitude;
   pppppreviousaltitude = ppppreviousaltitude;
@@ -291,9 +346,17 @@ void loop() {
       //  + String(myGNSS.getHour()) + ":" + String(myGNSS.getMinute()) + ":" + String(myGNSS.getSecond()) + ","  //MISSION_TIME
        + "0:00:00,"
        + String(packetCount) + ","                                                                             //PACKET_COUNT
-       + "F,"                                                                                                  //MODE
-       + String(flightState) + ","                                                                             //STATE
-       + String(float(bmp.readAltitude(calibrated_pressure)), 1) + ","                                         //ALTITUDE
+       + "F,");                                                                                                  //MODE
+      if (sentApo == false && (flightState == "DESCENT" || flightState == "APOGEE")){
+        packet += "APOGEE";
+        packet += ",";
+      }
+      else{
+        packet += flightState;
+        packet += ",";
+      }
+      packet += (                                                                       //STATE
+         String(float(bmp.readAltitude(calibrated_pressure)), 1) + ","                                         //ALTITUDE
        + String(float(bmp.readTemperature()), 1) + ","                                                         //TEMPERATURE
        + String(float(bmp.readPressure() / 1000), 1) + ","                                                     //PRESSURE
        + String(float((analogRead(VOLT_PIN)) * (3.3 / 4095.0) / (600.0 / 1985.5)), 1) + ","                    //VOLTAGE
@@ -313,9 +376,9 @@ void loop() {
       //  + String(float(latitude / 10000000.0), 4) + ","
       //  + String(float(longitude / 10000000.0), 4) + ","
       //  + String(SIV) + ","
-      + "0,0,0,0,"
+      + "0.0,0.0000,0.0000,0,"
        + String(echo))
-      + ",,ON,N/A";
+      + ",,ON,00:00";
 
 
   }

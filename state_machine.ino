@@ -10,7 +10,7 @@ String statemachine(float currentaltitude, float previousaltitude, float pprevio
 // LANDED
 // velocity = change in position in meters per second
 //maxaltitude = altitude when altitude values before were slowly increasing and after where slowly decreasing
-if (launch_pad == true || ascent == true || apogee == true)
+if (launch_pad == true || ascent == true || apogee == true || descent)
 {
   if (currentaltitude > truemaximumaltitude)
   {
@@ -35,7 +35,7 @@ if (launch_pad == true || ascent == true || apogee == true)
 //   maxaltitude = (pppppreviousaltitude + maximumaltitude + bmaltitude) / 3; //averages atltitude of agpogee and right before and right after to create maximum height value
 // }
 
-if (currentaltitude < 10 && launch_pad == true)
+if (currentaltitude < 10 && launch_pad)
 {
 state = "LAUNCH_PAD";
  launch_pad = true;
@@ -45,9 +45,8 @@ state = "LAUNCH_PAD";
 probe_release = false;
 
 
-
 }
-else if ((currentaltitude) > 10 && (abs((currentaltitude) - (previousaltitude)) > 2) && abs((previousaltitude) - (ppreviousaltitude)) > 2 && launch_pad == true) //&& launch_pad == true
+else if (currentaltitude > 50 && launch_pad) //&& launch_pad == true
 {
 
 state = "ASCENT";
@@ -59,7 +58,7 @@ descent = false;
 probe_release = false;
 }
 
-else if (abs((currentaltitude) - (previousaltitude)) < abs((previousaltitude) - (ppreviousaltitude)) && abs((currentaltitude) - (previousaltitude)) < 20 && abs((previousaltitude) - (ppreviousaltitude)) < 20 && ascent == true)
+else if (currentaltitude > 500 && (currentaltitude - previousaltitude) < 0 && ascent)
 {
 
 
@@ -99,7 +98,7 @@ apogee = false;
 probe_release = false;
 
 }
-else if (currentaltitude < .75*truemaximumaltitude && previousaltitude < .75*truemaximumaltitude && descent == true)
+else if (currentaltitude < .75*truemaximumaltitude && descent == true)
 {
 
 
@@ -107,7 +106,7 @@ state = "PROBE_RELEASE";
 // myServo.write(20?);
 // delay(time);
 // digitalWrite(11,LOW);
-release_servo.write(60); //turns servo to release payload by assigning pos value to 60
+release_servo.write(65); //turns servo to release payload by assigning pos value to 60
 probe_release = true;
 launch_pad = false;
 ascent = false;
