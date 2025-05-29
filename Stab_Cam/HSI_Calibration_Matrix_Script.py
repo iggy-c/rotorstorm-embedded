@@ -63,7 +63,5 @@ def calibrate(filename):
 
 # ~~ Run calibration ~~ #
 if __name__ == "__main__":
-    FILENAME = "Stab_Cam\HSI_test_Csv.csv" # -- change to file name -- #
+    FILENAME = "Stab_Cam\mag_fig8.csv" # -- change to file name -- #
     calibrate(FILENAME)
-
-
