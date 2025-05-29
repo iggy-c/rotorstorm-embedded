@@ -5,7 +5,7 @@ from numpy.linalg import eig, inv
 
 # ~~ Pull CSV data ~~ #
 def pull_csv(filename):
-    data = np.loadtxt(filename, delimiter=',', skiprows=1)
+    data = np.loadtxt(filename, delimiter=',', skiprows=0)
     return data
 
 # ~~ Plot 3d ~~ #
@@ -63,7 +63,7 @@ def calibrate(filename):
 
 # ~~ Run calibration ~~ #
 if __name__ == "__main__":
-    FILENAME = "XXXXX.csv" # -- change to file name -- #
+    FILENAME = "Stab_Cam\HSI_test_Csv.csv" # -- change to file name -- #
     calibrate(FILENAME)
 
 

@@ -9,19 +9,24 @@ Adafruit_ICM20948 icm;
 #define I2C_SCL 7 
 
 void setup() {
-  Serial.begin(115200);
-  while (!Serial);
-
-
   Wire.setSDA(I2C_SDA);
   Wire.setSCL(I2C_SCL);
   Wire.begin();
 
-  if (!icm.begin_I2C(ICM_ADDRESS, &Wire)) {
-    Serial.println("Failed to connect to ICM20948");
-    while (1) delay(10);
+  Serial.begin(115200);
+  while (!Serial);
+
+  Serial.println("I2C Scanner starting...");
+
+  for (uint8_t address = 1; address < 127; address++) {
+    Wire.beginTransmission(address);
+    if (Wire.endTransmission() == 0) {
+      Serial.print("I2C device found at 0x");
+      Serial.println(address, HEX);
+    }
+
+  Serial.print("scan finished");
   }
-  Serial.println("ICM20948 found");
 }
 
 void loop() {
