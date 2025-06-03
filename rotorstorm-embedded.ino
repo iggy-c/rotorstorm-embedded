@@ -25,18 +25,17 @@
 #define TACH_SCL 15
 
 #define SEALEVELPRESSURE_HPA (1013.25)
-#define START_DELIMITER 0x7E  // XBee API start byte
 
 Servo release_servo;
 SFE_UBLOX_GNSS myGNSS;
 Adafruit_BMP3XX bmp;
-Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);  // go from wire to wire as needed
+Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);  
 auto timer = timer_create_default();
 
 bool telemetry = true;
 int packetCount = 1;
-uint16_t BNO055_SAMPLERATE_DELAY_MS = 100;  // this could cause timing issues
-String packet = "adsf";
+uint16_t BNO055_SAMPLERATE_DELAY_MS = 100; 
+String packet = "";
 String echo;
 
 float calibrated_pressure;
@@ -46,7 +45,7 @@ int32_t gps_altitude;
 uint16_t rpm;
 byte SIV;
 
-bool DEBUG_MODE = false;
+bool DEBUG_MODE = true;
 bool sentApo = false;
 String flightState = "LAUNCH_PAD";
 
@@ -64,7 +63,7 @@ bool probe_release = false;
 
 
 float maxaltitude = 0;
- float currentaltitude = 0;
+float currentaltitude = 0;
 float previousaltitude = 0;
 float ppreviousaltitude = 0;
 float pppreviousaltitude = 0;
@@ -128,6 +127,61 @@ bool send(void *) {
   return true;
 }
 
+void parseFrame() {
+  static enum { WAIT_START, READ_LEN1, READ_LEN2, READ_FRAME } state = WAIT_START;
+  static uint16_t frameLen = 0;
+  static uint16_t bytesRead = 0;
+  static uint8_t buffer[128];
+
+  while (Serial1.available()) {
+    uint8_t b = Serial1.read();
+
+    switch (state) {
+      case WAIT_START:
+        if (b == 0x7E) {
+          state = READ_LEN1;
+        }
+        break;
+
+      case READ_LEN1:
+        frameLen = b << 8;
+        state = READ_LEN2;
+        break;
+
+      case READ_LEN2:
+        frameLen |= b;
+        bytesRead = 0;
+        state = READ_FRAME;
+        break;
+
+      case READ_FRAME:
+        if (bytesRead < sizeof(buffer)) {
+          buffer[bytesRead++] = b;
+        }
+
+        if (bytesRead >= frameLen + 1) {  // +1 for checksum
+          // Frame complete
+          if (buffer[0] == 0x90) {
+            // Valid 0x90 RX frame
+            uint8_t payloadOffset = 12; // 11 bytes before payload
+            uint16_t payloadLen = frameLen - payloadOffset;
+
+            Serial.print("[RX] ");
+            for (uint16_t i = 0; i < payloadLen; i++) {
+              char c = buffer[payloadOffset + i];
+              if (isPrintable(c)) Serial.print(c);
+              else Serial.print('.');
+            }
+            Serial.println();
+          }
+
+          state = WAIT_START;  // Reset for next frame
+        }
+        break;
+    }
+  }
+}
+
 
 void setup() {
 
@@ -155,8 +209,7 @@ void setup() {
   if (!bmp.begin_I2C(0x76)) { 
     if (!bmp.begin_I2C(0x77)) { 
       Serial.println("Could not find a valid BMP3XX sensor, check wiring!");
-      while (DEBUG_MODE)
-        ; 
+      while (DEBUG_MODE); 
     }
   }
   if (!bno.begin()) {
@@ -196,12 +249,12 @@ void setup() {
   //beginning of GNSS setup
   delay(100);
 
-  // if (myGNSS.begin(Wire, gnssAddress) == false) {
-  //   Serial.println(F("u-blox GNSS not detected"));
-  //   while(DEBUG_MODE){
-  //     ;
-  //   }
-  // }
+  if (myGNSS.begin(Wire, gnssAddress) == false) {
+    Serial.println(F("u-blox GNSS not detected"));
+    while(DEBUG_MODE){
+      ;
+    }
+  }
 
   release_servo.attach(SERVO_CTRL, 400, 2600);
   release_servo.write(80);
@@ -221,13 +274,15 @@ void loop() {
 
   timer.tick();
 
+  parseFrame();
+
   sensors_event_t linearAccelData, magnetometerData, accelerometerData;
   bno.getEvent(&linearAccelData, Adafruit_BNO055::VECTOR_LINEARACCEL);
   bno.getEvent(&magnetometerData, Adafruit_BNO055::VECTOR_MAGNETOMETER);
   bno.getEvent(&accelerometerData, Adafruit_BNO055::VECTOR_ACCELEROMETER);
 
-  uint8_t system, gyro, accel, mag = 0;
-  bno.getCalibration(&system, &gyro, &accel, &mag);
+  // uint8_t system, gyro, accel, mag = 0;
+  // bno.getCalibration(&system, &gyro, &accel, &mag);
 
 
   String packet_payload = "";
@@ -239,19 +294,13 @@ void loop() {
 
 
   // beginning of GNSS stuff
-  // if (myGNSS.getPVT() == true) {
-  //   latitude = myGNSS.getLatitude();
-  //   // Serial.print(myGNSS.getLatitude());
-  //   longitude = myGNSS.getLongitude();
-  //   // Serial.print(myGNSS.getLongitude());
-  //   gps_altitude = myGNSS.getAltitudeMSL();  // Altitude above Mean Sea Level
-  //   // Serial.println(gps_altitude);
-
-  //   lastTime = millis();  //Update the timer
-  //   SIV = myGNSS.getSIV();
-  //   // Serial.print(SIV);
-  //   Serial.println("end of gnss");
-  // }
+  if (myGNSS.getPVT() == true) {
+    latitude = myGNSS.getLatitude();
+    longitude = myGNSS.getLongitude();
+    gps_altitude = myGNSS.getAltitudeMSL();  // Altitude above Mean Sea Level
+    lastTime = millis();  //Update the timer
+    SIV = myGNSS.getSIV();
+  }
 
 
   //Handle received messages from XBee
@@ -339,7 +388,7 @@ void loop() {
   }
 
 
-  if (telemetry) {
+  if (telemetry){
     packet =
       ("3194,"                                                                                                 //TEAM_ID
       + String(0)
@@ -359,7 +408,7 @@ void loop() {
          String(float(bmp.readAltitude(calibrated_pressure)), 1) + ","                                         //ALTITUDE
        + String(float(bmp.readTemperature()), 1) + ","                                                         //TEMPERATURE
        + String(float(bmp.readPressure() / 1000), 1) + ","                                                     //PRESSURE
-       + String(float((analogRead(VOLT_PIN)) * (3.3 / 4095.0) / (600.0 / 1985.5)), 1) + ","                    //VOLTAGE
+       + String(float((analogRead(VOLT_PIN)) * (3.3 / 4095.0) / (600.0 / 1400.0)), 1) + ","                    //VOLTAGE
        + String(float(linearAccelData.acceleration.x)) + ","                                                   //GYRO X
        + String(float(linearAccelData.acceleration.y)) + ","                                                   //GYRO Y
        + String(float(linearAccelData.acceleration.z)) + ","                                                   //GYRO Z
@@ -370,13 +419,13 @@ void loop() {
        + String(float(magnetometerData.magnetic.y / 100)) + ","
        + String(float(magnetometerData.magnetic.z / 100)) + ","
        + String(rpm) + ","
-      //  + String(myGNSS.getHour()) + ":" + String(myGNSS.getMinute()) + ":" + String(myGNSS.getSecond()) + ","
-      + "00:00:00,"
-      //  + String(float(gps_altitude / 1000.0), 1) + ","
-      //  + String(float(latitude / 10000000.0), 4) + ","
-      //  + String(float(longitude / 10000000.0), 4) + ","
-      //  + String(SIV) + ","
-      + "0.0,0.0000,0.0000,0,"
+       + String(myGNSS.getHour()) + ":" + String(myGNSS.getMinute()) + ":" + String(myGNSS.getSecond()) + ","
+      // + "00:00:00,"
+       + String(float(gps_altitude / 1000.0), 1) + ","
+       + String(float(latitude / 10000000.0), 4) + ","
+       + String(float(longitude / 10000000.0), 4) + ","
+       + String(SIV) + ","
+      // + "0.0,0.0000,0.0000,0," 
        + String(echo))
       + ",,ON,00:00";
 
