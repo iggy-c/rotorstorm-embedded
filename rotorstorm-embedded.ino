@@ -359,7 +359,7 @@ void loop() {
          String(float(bmp.readAltitude(calibrated_pressure)), 1) + ","                                         //ALTITUDE
        + String(float(bmp.readTemperature()), 1) + ","                                                         //TEMPERATURE
        + String(float(bmp.readPressure() / 1000), 1) + ","                                                     //PRESSURE
-       + String(float((analogRead(VOLT_PIN)) * (3.3 / 4095.0) / (600.0 / 1985.5)), 1) + ","                    //VOLTAGE
+       + String(float(((analogRead(VOLT_PIN)) * (3.3 / 4095.0) / (667.0 / 1445.5))+1.8), 1) + ","                    //VOLTAGE
        + String(float(linearAccelData.acceleration.x)) + ","                                                   //GYRO X
        + String(float(linearAccelData.acceleration.y)) + ","                                                   //GYRO Y
        + String(float(linearAccelData.acceleration.z)) + ","                                                   //GYRO Z
@@ -379,7 +379,6 @@ void loop() {
       + "0.0,0.0000,0.0000,0,"
        + String(echo))
       + ",,ON,00:00";
-
 
   }
   delay(1);
