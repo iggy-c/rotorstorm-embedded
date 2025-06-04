@@ -58,7 +58,7 @@ descent = false;
 probe_release = false;
 }
 
-else if (currentaltitude > 500 && (currentaltitude - previousaltitude) < 0 && ascent)
+else if (currentaltitude > 100 && (currentaltitude - previousaltitude) < 0 && (previousaltitude - ppreviousaltitude < 0) && ascent)
 {
 
 
