@@ -62,7 +62,7 @@ bool descent = false;
 bool probe_release = false;
 
 
-
+float updatedaltitude = 0;
 float maxaltitude = 0;
  float currentaltitude = 0;
 float previousaltitude = 0;
@@ -218,9 +218,22 @@ bool incr(void *){
 }
 
 void loop() {
+currentaltitude = bmp.readAltitude(calibrated_pressure);
+
+  flightState = statemachine(currentaltitude, previousaltitude, ppreviousaltitude, pppreviousaltitude, ppppreviousaltitude, pppppreviousaltitude, maximumaltitude, bmaltitude);
 
   timer.tick();
-
+  updatedaltitude = bmp.readAltitude(calibrated_pressure);
+  if (updatedaltitude != currentaltitude)
+  {
+    bmaltitude = maximumaltitude;
+  maximumaltitude = pppppreviousaltitude;
+  pppppreviousaltitude = ppppreviousaltitude;
+  ppppreviousaltitude = pppreviousaltitude;
+  pppreviousaltitude = ppreviousaltitude;
+  ppreviousaltitude = previousaltitude;
+  previousaltitude = currentaltitude;
+  }
   sensors_event_t linearAccelData, magnetometerData, accelerometerData;
   bno.getEvent(&linearAccelData, Adafruit_BNO055::VECTOR_LINEARACCEL);
   bno.getEvent(&magnetometerData, Adafruit_BNO055::VECTOR_MAGNETOMETER);
@@ -312,16 +325,17 @@ void loop() {
   Serial1.flush();
 
 
-  currentaltitude = bmp.readAltitude(calibrated_pressure);
+  // currentaltitude = bmp.readAltitude(calibrated_pressure);
 
-  flightState = statemachine(currentaltitude, previousaltitude, ppreviousaltitude, pppreviousaltitude, ppppreviousaltitude, pppppreviousaltitude, maximumaltitude, bmaltitude);
-  bmaltitude = maximumaltitude;
-  maximumaltitude = pppppreviousaltitude;
-  pppppreviousaltitude = ppppreviousaltitude;
-  ppppreviousaltitude = pppreviousaltitude;
-  pppreviousaltitude = ppreviousaltitude;
-  ppreviousaltitude = previousaltitude;
-  previousaltitude = currentaltitude;
+  // flightState = statemachine(currentaltitude, previousaltitude, ppreviousaltitude, pppreviousaltitude, ppppreviousaltitude, pppppreviousaltitude, maximumaltitude, bmaltitude);
+  // bmaltitude = maximumaltitude;
+  // maximumaltitude = pppppreviousaltitude;
+  // pppppreviousaltitude = ppppreviousaltitude;
+  // ppppreviousaltitude = pppreviousaltitude;
+  // pppreviousaltitude = ppreviousaltitude;
+  // ppreviousaltitude = previousaltitude;
+  // previousaltitude = currentaltitude;
+
   // Serial.println("flightstate: ");
   // Serial.println(flightState);
 
@@ -359,7 +373,7 @@ void loop() {
          String(float(bmp.readAltitude(calibrated_pressure)), 1) + ","                                         //ALTITUDE
        + String(float(bmp.readTemperature()), 1) + ","                                                         //TEMPERATURE
        + String(float(bmp.readPressure() / 1000), 1) + ","                                                     //PRESSURE
-       + String(float((analogRead(VOLT_PIN)) * (3.3 / 4095.0) / (600.0 / 1985.5)), 1) + ","                    //VOLTAGE
+       + String(float(((analogRead(VOLT_PIN)) * (3.3 / 4095.0) / (667.0 / 1445.5))+1.8), 1) + ","                    //VOLTAGE
        + String(float(linearAccelData.acceleration.x)) + ","                                                   //GYRO X
        + String(float(linearAccelData.acceleration.y)) + ","                                                   //GYRO Y
        + String(float(linearAccelData.acceleration.z)) + ","                                                   //GYRO Z
@@ -379,8 +393,9 @@ void loop() {
       + "0.0,0.0000,0.0000,0,"
        + String(echo))
       + ",,ON,00:00";
-
-
+//       Serial.println("current");
+// Serial.println(currentaltitude);
+// Serial.println(previousaltitude);
   }
   delay(1);
   
